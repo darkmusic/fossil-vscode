@@ -32,4 +32,4 @@ Contributions are welcome.
 
 ## License
 
-See [LICENSE.TXT](LICENSE.txt).
+See [LICENSE](LICENSE).
