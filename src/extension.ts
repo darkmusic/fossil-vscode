@@ -2,19 +2,24 @@
 
 import * as vscode from 'vscode';
 import { workspace, scm, Uri } from 'vscode';
-import { execSync } from 'child_process';
 const path = require('path');
 const { exec } = require('child_process');
 var extensionPath = "";
+var repoDir = "";
+var fossilSCM: vscode.SourceControl;
+var workingTree: vscode.SourceControlResourceGroup;
 
 function createResourceUri(relativePath: string): vscode.Uri {
-  const absolutePath = path.join(vscode.workspace.rootPath, relativePath);
+  const absolutePath = path.join(repoDir, relativePath);
   return vscode.Uri.file(absolutePath);
 }
 
-const fossilSCM = vscode.scm.createSourceControl('fossil', "Fossil", Uri.parse(vscode.workspace.rootPath));
-const workingTree = fossilSCM.createResourceGroup('workingTree', "Changes");
-workingTree.hideWhenEmpty = true;
+export function init(workspaceDir: string = vscode.workspace.rootPath) {
+  repoDir = workspaceDir;
+  fossilSCM = vscode.scm.createSourceControl('fossil', "Fossil", Uri.parse(repoDir));
+  workingTree = fossilSCM.createResourceGroup('workingTree', "Changes");
+  workingTree.hideWhenEmpty = true;
+}
 
 enum Operation {
   Add = 'added',
@@ -32,15 +37,18 @@ function getIconPath(operation: Operation, themeType: ThemeType): string {
 }
 
 export function getFossilStatus() {
-  let rootPath = vscode.workspace.rootPath;
+  let rootPath = repoDir;
   if (rootPath == undefined) {
     return;
   }
 
-  let result = exec(`cd ${rootPath} && fossil status`, (err, stdout, stderr) => {
+  process.chdir(rootPath);
+  let fossilExePath = vscode.workspace.getConfiguration('fossilScm').get('fossilExePath');
+  let result = exec(`cd ${rootPath} && ${fossilExePath} status`, (err, stdout, stderr) => {
     if (err) {
       console.log('Could not execute command.');
       console.log(`stderr: ${stderr}`);
+      console.log(`Repository directory: ${rootPath}`);
     }
     
     let lines = stdout.split("\n");
@@ -104,26 +112,27 @@ export function getFossilStatus() {
 
     workingTree.resourceStates = states;
     fossilSCM.count = states.length;
-  });
+ });
   
   
 }
 
 export function activate(context: vscode.ExtensionContext) {
-    console.log('fossil-scm extension activated.');
-    extensionPath = context.extensionPath;
+  init();
+  console.log('fossil-scm extension activated.');
+  extensionPath = context.extensionPath;
 
-    const fsWatcher = workspace.createFileSystemWatcher("**");
-    fsWatcher.onDidChange(() => { getFossilStatus(); });
-    fsWatcher.onDidCreate(() => { getFossilStatus(); });
-    fsWatcher.onDidDelete(() => { getFossilStatus(); });
+  const fsWatcher = workspace.createFileSystemWatcher("**");
+  fsWatcher.onDidChange(() => { getFossilStatus(); });
+  fsWatcher.onDidCreate(() => { getFossilStatus(); });
+  fsWatcher.onDidDelete(() => { getFossilStatus(); });
 
-    let disposable = vscode.commands.registerCommand('extension.fossilSCM', () => {
-        getFossilStatus();
-    });
+  let disposable = vscode.commands.registerCommand('extension.fossilSCM', () => {
+      getFossilStatus();
+  });
 
-    context.subscriptions.push(disposable);
-    context.subscriptions.push(fsWatcher);
+  context.subscriptions.push(disposable);
+  context.subscriptions.push(fsWatcher);
 }
 
 export function deactivate() {

@@ -10,13 +10,16 @@ import * as assert from 'assert';
 // as well as import your extension to test it
 import * as vscode from 'vscode';
 import * as fossilSCM from '../extension';
+const { execSync } = require('child_process');
 
 // Defines a Mocha test suite to group tests of similar kind together
 suite("Extension Tests", () => {
-
-    // Defines a Mocha unit test
-    test("Something 1", () => {
-        assert.equal(-1, [1, 2, 3].indexOf(5));
-        assert.equal(-1, [1, 2, 3].indexOf(0));
-    });
+    test("Retrieve status", () => {
+        // Note:fossil repository must be opened first
+        // e.g.:
+        // cd src\test\test_repo
+        // fossil open TestRepo.fossil
+        fossilSCM.init(__dirname + "\\..\\..\\src\\test\\test_repo");
+        fossilSCM.getFossilStatus();
+    })
 });

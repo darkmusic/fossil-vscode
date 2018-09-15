@@ -3,3 +3,4 @@ node_modules
 .vscode/
 .vscode-test/
 *.code-workspace
+src/test/test_repo/_FOSSIL_
