@@ -17,7 +17,7 @@ Currently, it only supports a basic file listing, which is based on the command 
 
 ## Installation
 This extension has not yet been released, but can be tested using the [Extension Development Host](https://code.visualstudio.com/docs/extensions/testing-extensions).
-You can also copy the entire source folder to your extensions folder for testing (e.g. C:\Users\myUserName\.vscode\extensions)
+You can also copy the entire source folder to your extensions folder for testing (e.g. C:\Users\myUserName\\.vscode\extensions)
 
 ## Configuration
 You must configure the location to **fossil.exe** using the setting **fossilScm.fossilExePath** in *settings.json*.
