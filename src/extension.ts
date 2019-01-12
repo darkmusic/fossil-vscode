@@ -15,6 +15,8 @@ function createResourceUri(relativePath: string): vscode.Uri {
 }
 
 export function init(workspaceDir: string = vscode.workspace.rootPath) {
+  if (!workspaceDir.startsWith("file://"))
+    workspaceDir = "file://" + workspaceDir;
   repoDir = workspaceDir;
   fossilSCM = vscode.scm.createSourceControl('fossil', "Fossil", Uri.parse(repoDir));
   workingTree = fossilSCM.createResourceGroup('workingTree', "Changes");
@@ -63,7 +65,7 @@ export async function getFossilStatus() : Promise<void> {
       //console.log(line);
       if (line.length > 0) {
         if (line.startsWith("DELETED")) {
-          var fileUri = line.substr(8).trim();
+          var fileUri: string = "file://" + line.substr(8).trim();
           var delState = {
             resourceUri: createResourceUri(fileUri),
             decorations: {
@@ -81,7 +83,7 @@ export async function getFossilStatus() : Promise<void> {
           states.push(delState);
         }
         else if (line.startsWith("EDITED")) {
-          var fileUri = line.substr(8).trim();
+          var fileUri: string = "file://" + line.substr(8).trim();
           var editState = {
             resourceUri: createResourceUri(fileUri),
             decorations: {
@@ -97,7 +99,7 @@ export async function getFossilStatus() : Promise<void> {
           states.push(editState);
         }
         else if (line.startsWith("ADDED")) {
-          var fileUri = line.substr(6).trim();
+          var fileUri: string = "file://" + line.substr(6).trim();
           var addState = {
             resourceUri: createResourceUri(fileUri),
             decorations: {
