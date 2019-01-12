@@ -9,7 +9,7 @@
     "publisher": "darkmusic",
     "license": "MIT",
     "engines": {
-        "vscode": "^1.27.0"
+        "vscode": "^1.30.2"
     },
     "categories": [
         "Other"
@@ -31,8 +31,8 @@
             "properties": {
                 "fossilScm.fossilExePath": {
                     "type": "string",
-                    "default": "fossil.exe",
-                    "description": "Path to fossil.exe"
+                    "default": "fossil",
+                    "description": "Path to fossil executable"
                 }
             }
         }
@@ -49,6 +49,6 @@
         "@types/node": "^7.0.65",
         "randomatic": ">=3.0.0",
         "typescript": "^2.9.2",
-        "vscode": "^1.1.21"
+        "vscode": ">=1.1.26"
     }
 }

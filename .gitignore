@@ -4,3 +4,4 @@ node_modules
 .vscode-test/
 *.code-workspace
 src/test/test_repo/_FOSSIL_
+src/test/test_repo/.fslckout

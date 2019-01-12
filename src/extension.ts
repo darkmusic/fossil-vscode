@@ -36,12 +36,16 @@ function getIconPath(operation: Operation, themeType: ThemeType): string {
   return path.join(extensionPath, "resources/icons/" + themeType + "/status-" + operation + ".svg");
 }
 
-export function getFossilStatus() {
-  let rootPath = repoDir;
-  if (rootPath == undefined) {
+export function getStateCount() {
+  return fossilSCM.count;
+}
+
+export async function getFossilStatus() : Promise<void> {
+  if (repoDir == undefined) {
     return;
   }
-
+  // Strip "file://" from uri
+  let rootPath = repoDir.substr(7);
   process.chdir(rootPath);
   let fossilExePath = vscode.workspace.getConfiguration('fossilScm').get('fossilExePath');
   let result = exec(`cd ${rootPath} && ${fossilExePath} status`, (err, stdout, stderr) => {
@@ -56,6 +60,7 @@ export function getFossilStatus() {
     var states = [];
 
     lines.forEach(line => {
+      //console.log(line);
       if (line.length > 0) {
         if (line.startsWith("DELETED")) {
           var fileUri = line.substr(8).trim();
