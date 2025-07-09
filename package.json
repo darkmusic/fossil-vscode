@@ -51,13 +51,13 @@
         "diff": "^8.0.2",
         "randomatic": "^3.1.1",
         "typescript": "^2.9.2",
-        "vscode": "^1.1.37"
+        "vscode": "^1.1.37",
+        "npm-force-resolutions": "^0.0.10"
     },
     "resolutions": {
         "mkdirp": "^0.5.3",
         "minimist": "^1.2.0"
     },
     "dependencies": {
-        "npm-force-resolutions": "^0.0.10"
     }
 }
