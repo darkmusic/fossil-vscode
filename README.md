@@ -16,10 +16,12 @@ Currently, it only supports a basic file listing, which is based on the command 
 - [Visual Studio Code](https://code.visualstudio.com/) 1.30.2+ must be installed.
 
 ## Installation
-This extension has not yet been released, but can be tested using the [Extension Development Host](https://code.visualstudio.com/docs/extensions/testing-extensions).
+
+This extension has not yet been released, but can be tested using the [Extension Development Host](https://code.visualstudio.com/docs/extension`s/testing-extensions).
 You can also copy the entire source folder to your extensions folder for testing (e.g. C:\Users\myUserName\\.vscode\extensions)
 
 ## Configuration
+
 You must configure the location to **fossil.exe** (or **fossil** on Linux) using the setting **fossilScm.fossilExePath** in *settings.json*.
 
 ## Known Issues
