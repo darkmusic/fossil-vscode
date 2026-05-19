@@ -1,146 +1,171 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import { workspace, scm, Uri } from 'vscode';
-const path = require('path');
-const { exec } = require('child_process');
-var extensionPath = "";
-var repoDir = "";
-var fossilSCM: vscode.SourceControl;
-var workingTree: vscode.SourceControlResourceGroup;
+import * as path from 'path';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+
+const execFileAsync = promisify(execFile);
+
+let extensionPath = '';
+let repoDir = '';
+let fossilSCM: vscode.SourceControl;
+let workingTree: vscode.SourceControlResourceGroup;
 
 function createResourceUri(relativePath: string): vscode.Uri {
-  const absolutePath = path.join(repoDir, relativePath);
-  return vscode.Uri.file(absolutePath);
+    const absolutePath = path.join(repoDir, relativePath);
+    return vscode.Uri.file(absolutePath);
 }
 
-export function init(workspaceDir: string = vscode.workspace.rootPath) {
-  if (!workspaceDir.startsWith("file://"))
-    workspaceDir = "file://" + workspaceDir;
-  repoDir = workspaceDir;
-  fossilSCM = vscode.scm.createSourceControl('fossil', "Fossil", Uri.parse(repoDir));
-  workingTree = fossilSCM.createResourceGroup('workingTree', "Changes");
-  workingTree.hideWhenEmpty = true;
+export function init(workspaceDir?: string) {
+    const dir =
+        workspaceDir ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!dir) {
+        return;
+    }
+    repoDir = dir;
+    fossilSCM = vscode.scm.createSourceControl(
+        'fossil',
+        'Fossil',
+        vscode.Uri.file(repoDir)
+    );
+    workingTree = fossilSCM.createResourceGroup('workingTree', 'Changes');
+    workingTree.hideWhenEmpty = true;
 }
 
 enum Operation {
-  Add = 'added',
-  Delete = 'deleted',
-  Modify = 'modified'
+    Add = 'added',
+    Delete = 'deleted',
+    Modify = 'modified',
 }
 
 enum ThemeType {
-  Light = 'light',
-  Dark = 'dark'
+    Light = 'light',
+    Dark = 'dark',
 }
 
 function getIconPath(operation: Operation, themeType: ThemeType): string {
-  return path.join(extensionPath, "resources/icons/" + themeType + "/status-" + operation + ".svg");
+    return path.join(
+        extensionPath,
+        'resources/icons/' + themeType + '/status-' + operation + '.svg'
+    );
 }
 
-export function getStateCount() {
-  return fossilSCM.count;
+export function getStateCount(): number {
+    return fossilSCM?.count ?? 0;
 }
 
-export async function getFossilStatus() : Promise<void> {
-  if (repoDir == undefined) {
-    return;
-  }
-  // Strip "file://" from uri
-  let rootPath = repoDir.substr(7);
-  process.chdir(rootPath);
-  let fossilExePath = vscode.workspace.getConfiguration('fossilScm').get('fossilExePath');
-  let result = exec(`cd ${rootPath} && ${fossilExePath} status`, (err, stdout, stderr) => {
-    if (err) {
-      console.log('Could not execute command.');
-      console.log(`stderr: ${stderr}`);
-      console.log(`Repository directory: ${rootPath}`);
+export async function getFossilStatus(): Promise<void> {
+    if (!repoDir) {
+        return;
     }
-    
-    let lines = stdout.split("\n");
-    let l = lines.length;
-    var states = [];
 
-    lines.forEach(line => {
-      //console.log(line);
-      if (line.length > 0) {
-        if (line.startsWith("DELETED")) {
-          var fileUri: string = "file://" + line.substr(8).trim();
-          var delState = {
-            resourceUri: createResourceUri(fileUri),
-            decorations: {
-              strikeThrough: true,
-              tooltip: "Deleted",
-              faded: true,
-              dark: {
-                iconPath: getIconPath(Operation.Delete, ThemeType.Dark)
-              },
-              light: {
-                iconPath: getIconPath(Operation.Delete, ThemeType.Light)
-              }
-            }
-          }
-          states.push(delState);
+    const fossilExePath = vscode.workspace
+        .getConfiguration('fossilScm')
+        .get<string>('fossilExePath', 'fossil');
+
+    let stdout: string;
+    try {
+        const result = await execFileAsync(fossilExePath, ['status'], {
+            cwd: repoDir,
+        });
+        stdout = result.stdout;
+    } catch (err: unknown) {
+        const execErr = err as { stderr?: string; message?: string };
+        console.log('Could not execute command.');
+        console.log(`stderr: ${execErr.stderr ?? execErr.message}`);
+        console.log(`Repository directory: ${repoDir}`);
+        return;
+    }
+
+    const states: vscode.SourceControlResourceState[] = [];
+
+    for (const line of stdout.split('\n')) {
+        if (line.length === 0) {
+            continue;
         }
-        else if (line.startsWith("EDITED")) {
-          var fileUri: string = "file://" + line.substr(8).trim();
-          var editState = {
-            resourceUri: createResourceUri(fileUri),
-            decorations: {
-              tooltip: "Modified",
-              dark: {
-                iconPath: getIconPath(Operation.Modify, ThemeType.Dark)
-              },
-              light: {
-                iconPath: getIconPath(Operation.Modify, ThemeType.Light)
-              }
-            }
-          }
-          states.push(editState);
+        if (line.startsWith('DELETED')) {
+            const relativePath = line.substring(8).trim();
+            states.push({
+                resourceUri: createResourceUri(relativePath),
+                decorations: {
+                    strikeThrough: true,
+                    tooltip: 'Deleted',
+                    faded: true,
+                    dark: {
+                        iconPath: getIconPath(Operation.Delete, ThemeType.Dark),
+                    },
+                    light: {
+                        iconPath: getIconPath(
+                            Operation.Delete,
+                            ThemeType.Light
+                        ),
+                    },
+                },
+            });
+        } else if (line.startsWith('EDITED')) {
+            const relativePath = line.substring(8).trim();
+            states.push({
+                resourceUri: createResourceUri(relativePath),
+                decorations: {
+                    tooltip: 'Modified',
+                    dark: {
+                        iconPath: getIconPath(Operation.Modify, ThemeType.Dark),
+                    },
+                    light: {
+                        iconPath: getIconPath(
+                            Operation.Modify,
+                            ThemeType.Light
+                        ),
+                    },
+                },
+            });
+        } else if (line.startsWith('ADDED')) {
+            const relativePath = line.substring(6).trim();
+            states.push({
+                resourceUri: createResourceUri(relativePath),
+                decorations: {
+                    tooltip: 'Added',
+                    dark: {
+                        iconPath: getIconPath(Operation.Add, ThemeType.Dark),
+                    },
+                    light: {
+                        iconPath: getIconPath(Operation.Add, ThemeType.Light),
+                    },
+                },
+            });
         }
-        else if (line.startsWith("ADDED")) {
-          var fileUri: string = "file://" + line.substr(6).trim();
-          var addState = {
-            resourceUri: createResourceUri(fileUri),
-            decorations: {
-              tooltip: "Added",
-              dark: {
-                iconPath: getIconPath(Operation.Add, ThemeType.Dark)
-              },
-              light: {
-                iconPath: getIconPath(Operation.Add, ThemeType.Light)
-              }
-            }
-          }
-          states.push(addState);
-        }
-      }
-    });
+    }
 
     workingTree.resourceStates = states;
     fossilSCM.count = states.length;
- });
-  
-  
 }
 
 export function activate(context: vscode.ExtensionContext) {
-  init();
-  console.log('fossil-scm extension activated.');
-  extensionPath = context.extensionPath;
+    extensionPath = context.extensionPath;
+    init();
+    console.log('fossil-scm extension activated.');
 
-  const fsWatcher = workspace.createFileSystemWatcher("**");
-  fsWatcher.onDidChange(() => { getFossilStatus(); });
-  fsWatcher.onDidCreate(() => { getFossilStatus(); });
-  fsWatcher.onDidDelete(() => { getFossilStatus(); });
+    const fsWatcher = vscode.workspace.createFileSystemWatcher('**');
+    fsWatcher.onDidChange(() => {
+        void getFossilStatus();
+    });
+    fsWatcher.onDidCreate(() => {
+        void getFossilStatus();
+    });
+    fsWatcher.onDidDelete(() => {
+        void getFossilStatus();
+    });
 
-  let disposable = vscode.commands.registerCommand('extension.fossilSCM', () => {
-      getFossilStatus();
-  });
+    const disposable = vscode.commands.registerCommand(
+        'extension.fossilSCM',
+        () => {
+            void getFossilStatus();
+        }
+    );
 
-  context.subscriptions.push(disposable);
-  context.subscriptions.push(fsWatcher);
+    context.subscriptions.push(disposable);
+    context.subscriptions.push(fsWatcher);
 }
 
-export function deactivate() {
-}
+export function deactivate() {}

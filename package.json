@@ -3,13 +3,13 @@
     "displayName": "Fossil SCM",
     "description": "Fossil SCM Plugin",
     "repository": {
-        "url": "https://github.com/darkmusic/fossil-scm"
+        "url": "https://github.com/darkmusic/fossil-vscode"
     },
     "version": "0.0.1",
     "publisher": "darkmusic",
     "license": "MIT",
     "engines": {
-        "vscode": "^1.30.2"
+        "vscode": "^1.95.0"
     },
     "categories": [
         "Other"
@@ -41,20 +41,19 @@
         "vscode:prepublish": "npm run compile",
         "compile": "tsc -p ./",
         "watch": "tsc -watch -p ./",
-        "preinstall": "npx npm-force-resolutions",
-        "postinstall": "node ./node_modules/vscode/bin/install"
+        "pretest": "npm run compile",
+        "test": "vscode-test"
     },
     "devDependencies": {
-        "@types/mocha": "^2.2.48",
-        "@types/node": "^7.10.14",
-        "diff": "^8.0.2",
-        "npm-force-resolutions": "^0.0.10",
-        "randomatic": "^3.1.1",
-        "typescript": "^5.8.3",
-        "vscode": "^1.1.37"
+        "@types/mocha": "^10.0.10",
+        "@types/node": "^20.17.0",
+        "@types/vscode": "^1.95.0",
+        "@vscode/test-cli": "^0.0.12",
+        "@vscode/test-electron": "^2.5.2",
+        "typescript": "^5.8.3"
     },
-    "resolutions": {
-        "mkdirp": "0.5.6",
-        "minimist": "1.2.8"
+    "overrides": {
+        "diff": "^8.0.3",
+        "serialize-javascript": "^7.0.5"
     }
 }

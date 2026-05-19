@@ -13,7 +13,7 @@ Currently, it only supports a basic file listing, which is based on the command 
 ## Requirements
 
 - You will need to install [Fossil SCM](https://www.fossil-scm.org).
-- [Visual Studio Code](https://code.visualstudio.com/) 1.30.2+ must be installed.
+- [Visual Studio Code](https://code.visualstudio.com/) 1.95.0+ must be installed.
 
 ## Installation
 
@@ -31,6 +31,15 @@ See [Issues](https://github.com/darkmusic/fossil-vscode/issues).
 ## Contributing
 
 Contributions are welcome.
+
+### Running tests
+
+Integration tests require [Fossil](https://www.fossil-scm.org) on your PATH and an opened copy of the test repository:
+
+```bash
+cd src/test/test_repo && fossil open TestRepo.fossil
+npm test
+```
 
 ## License
 
