@@ -26,6 +26,8 @@ jobs:
 
       - run: npm ci
 
+      - run: npm install --save-dev @vscode/test
+
       - run: npm run check-types
 
       - run: npm run compile && node esbuild.js --production
