@@ -39,7 +39,7 @@ jobs:
         run: cd src/test/test_repo && fossil open TestRepo.fossil -f
 
       - name: Download VS Code
-        run: npx @vscode/test download --platform linux-x64
+        run: npx @vscode/test-electron download --platform linux-x64
 
       - name: Run tests
         run: xvfb-run -a npm test
