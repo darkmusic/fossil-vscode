@@ -6,6 +6,11 @@ export interface StatusRefreshScheduler {
     dispose(): void;
 }
 
+interface RefreshWaiter {
+    resolve: () => void;
+    reject: (err: unknown) => void;
+}
+
 /**
  * Debounced status refresh for FS watcher events, with in-flight coalescing.
  */
@@ -17,10 +22,53 @@ export function createStatusRefreshScheduler(
     let inFlight: Promise<void> | undefined;
     let pendingRefresh = false;
     let disposed = false;
+    let waiters: RefreshWaiter[] = [];
 
     function logRefreshError(err: unknown): void {
         const message = err instanceof Error ? err.message : String(err);
         console.error('Fossil status refresh failed:', message);
+    }
+
+    function resolveWaiters(): void {
+        const batch = waiters;
+        waiters = [];
+        for (const waiter of batch) {
+            waiter.resolve();
+        }
+    }
+
+    function rejectWaiters(err: unknown): void {
+        const batch = waiters;
+        waiters = [];
+        for (const waiter of batch) {
+            waiter.reject(err);
+        }
+    }
+
+    function requestFollowUp(): void {
+        if (!disposed) {
+            pendingRefresh = true;
+        }
+    }
+
+    async function kickRefresh(): Promise<void> {
+        if (disposed || inFlight) {
+            return;
+        }
+
+        try {
+            do {
+                pendingRefresh = false;
+                inFlight = refresh();
+                await inFlight;
+            } while (pendingRefresh && !disposed);
+            resolveWaiters();
+        } catch (err) {
+            rejectWaiters(err);
+            throw err;
+        } finally {
+            inFlight = undefined;
+        }
     }
 
     /** Fire-and-forget refresh; logs rejections from watcher-driven paths. */
@@ -28,31 +76,28 @@ export function createStatusRefreshScheduler(
         if (disposed) {
             return;
         }
-        void runRefresh().catch(logRefreshError);
-    }
-
-    async function runRefresh(): Promise<void> {
-        if (disposed) {
+        if (inFlight) {
+            requestFollowUp();
             return;
         }
-        if (inFlight) {
-            if (!disposed) {
-                pendingRefresh = true;
-            }
-            return inFlight;
+        void kickRefresh().catch(logRefreshError);
+    }
+
+    function joinRefresh(): Promise<void> {
+        if (disposed) {
+            return Promise.resolve();
         }
-        inFlight = refresh().finally(() => {
-            inFlight = undefined;
-            if (disposed) {
-                pendingRefresh = false;
-                return;
-            }
-            if (pendingRefresh) {
-                pendingRefresh = false;
-                fireRefresh();
+
+        return new Promise<void>((resolve, reject) => {
+            waiters.push({ resolve, reject });
+            if (inFlight) {
+                requestFollowUp();
+            } else {
+                void kickRefresh().catch((err) => {
+                    logRefreshError(err);
+                });
             }
         });
-        return inFlight;
     }
 
     return {
@@ -76,7 +121,7 @@ export function createStatusRefreshScheduler(
                 clearTimeout(timer);
                 timer = undefined;
             }
-            return runRefresh();
+            return joinRefresh();
         },
         dispose(): void {
             disposed = true;
@@ -85,6 +130,7 @@ export function createStatusRefreshScheduler(
                 clearTimeout(timer);
                 timer = undefined;
             }
+            resolveWaiters();
         },
     };
 }

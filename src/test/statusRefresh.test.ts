@@ -39,6 +39,36 @@ suite('statusRefresh', () => {
         scheduler.dispose();
     });
 
+    test('refreshNow awaits coalesced follow-up refresh', async function () {
+        this.timeout(5000);
+        let callCount = 0;
+        let resolveFirst: () => void;
+        const firstDone = new Promise<void>((r) => {
+            resolveFirst = r;
+        });
+
+        const scheduler = createStatusRefreshScheduler(async () => {
+            callCount++;
+            if (callCount === 1) {
+                await firstDone;
+            }
+        });
+
+        const first = scheduler.refreshNow();
+        const second = scheduler.refreshNow();
+        assert.equal(callCount, 1);
+
+        resolveFirst!();
+        await first;
+        assert.equal(
+            callCount,
+            2,
+            'refreshNow should not resolve until follow-up refresh completes'
+        );
+        await second;
+        scheduler.dispose();
+    });
+
     test('coalesces overlapping refreshNow calls', async function () {
         let callCount = 0;
         let resolveFirst: () => void;
