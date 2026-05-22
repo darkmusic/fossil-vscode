@@ -47,6 +47,16 @@ suite('Extension Tests', function () {
 
     setup(function () {
         fossilSCM.init(testRepoPath);
+        try {
+            execSync('fossil revert --all', { cwd: testRepoPath, stdio: 'pipe' });
+        } catch {
+            // nothing to revert
+        }
+        try {
+            execSync('fossil clean -f --force', { cwd: testRepoPath, stdio: 'pipe' });
+        } catch {
+            // ignore
+        }
     });
 
     test('runFossilCat returns file content from repository', async function () {
@@ -80,14 +90,22 @@ suite('Extension Tests', function () {
     });
 
     test('Add file and retrieve status', async function () {
-        execSync(`fossil add "${file1Path}"`, { cwd: testRepoPath });
-        await fossilSCM.getFossilStatus();
-        assert.equal(
-            fossilSCM.getStateCount(),
-            1,
-            'State count should be 1, but was: ' + fossilSCM.getStateCount()
-        );
-        execSync(`fossil revert "${file1Path}"`, { cwd: testRepoPath });
+        const newPath = path.join(testRepoPath, 'add-status-test.txt');
+        fs.writeFileSync(newPath, 'new\n');
+        try {
+            execSync(`fossil add "${newPath}"`, { cwd: testRepoPath });
+            await fossilSCM.getFossilStatus();
+            assert.equal(
+                fossilSCM.getStateCount(),
+                1,
+                'State count should be 1, but was: ' + fossilSCM.getStateCount()
+            );
+            execSync(`fossil revert "${newPath}"`, { cwd: testRepoPath });
+        } finally {
+            if (fs.existsSync(newPath)) {
+                fs.unlinkSync(newPath);
+            }
+        }
     });
 
     test('Remove file and retrieve status', async function () {

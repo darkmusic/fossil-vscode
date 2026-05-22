@@ -11,23 +11,26 @@ interface RefreshWaiter {
     reject: (err: unknown) => void;
 }
 
+export type StatusRefreshErrorHandler = (err: unknown) => void;
+
+function defaultLogRefreshError(err: unknown): void {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('Fossil status refresh failed:', message);
+}
+
 /**
  * Debounced status refresh for FS watcher events, with in-flight coalescing.
  */
 export function createStatusRefreshScheduler(
     refresh: () => Promise<void>,
-    debounceMs = 300
+    debounceMs = 300,
+    onRefreshError: StatusRefreshErrorHandler = defaultLogRefreshError
 ): StatusRefreshScheduler {
     let timer: ReturnType<typeof setTimeout> | undefined;
     let inFlight: Promise<void> | undefined;
     let pendingRefresh = false;
     let disposed = false;
     let waiters: RefreshWaiter[] = [];
-
-    function logRefreshError(err: unknown): void {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error('Fossil status refresh failed:', message);
-    }
 
     function resolveWaiters(): void {
         const batch = waiters;
@@ -80,7 +83,7 @@ export function createStatusRefreshScheduler(
             requestFollowUp();
             return;
         }
-        void kickRefresh().catch(logRefreshError);
+        void kickRefresh().catch(onRefreshError);
     }
 
     function joinRefresh(): Promise<void> {

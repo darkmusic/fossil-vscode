@@ -1,3 +1,5 @@
+[![CI](https://github.com/darkmusic/fossil-vscode/actions/workflows/ci.yml/badge.svg)](https://github.com/darkmusic/fossil-vscode/actions/workflows/ci.yml)
+
 # Fossil SCM for VS Code
 
 A [Visual Studio Code](https://code.visualstudio.com/) extension for [Fossil SCM](https://www.fossil-scm.org) checkouts. It is still under development and has not yet been released to the VS Code Marketplace.
