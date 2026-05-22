@@ -7,3 +7,4 @@ src/test/test_repo/_FOSSIL_
 src/test/test_repo/.fslckout
 dist
 *.vsix
+.cursor/plans

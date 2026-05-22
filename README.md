@@ -28,7 +28,17 @@ The list refreshes when files in the workspace change. In a multi-root workspace
 
 You can also run the command **Fossil SCM** from the Command Palette to refresh the status manually.
 
+**File history:**
+
+- **View Timeline (output):** Right-click a file under **Fossil → Changes**, or run **Fossil: View Timeline (Output)** from the Command Palette with a file open in the editor. Output appears in the **Fossil Timeline** panel (`fossil timeline -p` for that path).
+- **View Timeline (explorer):** Right-click a file in the Explorer and choose **Fossil: View Timeline** to refresh the **Fossil Timeline** output and open the **Timeline** view. VS Code’s built-in **Open Timeline** only opens the Timeline view (no Fossil output channel).
+- **Timeline view:** With a workspace file open, open the Explorer **Timeline** panel and select the **Fossil** source to see check-ins that changed that file. Click an entry to open a diff of the changes introduced in that check-in: parent revision vs that check-in (or an empty file vs the new version when the file was added in that check-in). Right-click an entry for **Open Diff** or **Copy Check-in ID**.
+
+### Source Control with diff viewer (integrated)
 ![Screenshot](doc/screenshot1.png)
+
+### Timeline with diff viewer (split)
+![Timeline](doc/timeline.png)
 
 ## Requirements
 

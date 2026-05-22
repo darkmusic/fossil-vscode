@@ -16,19 +16,35 @@ import {
     FileStatusEntry,
 } from './fossilQuickDiffProvider';
 import { normalizeRelativePath } from './paths';
+import { getRepoDir, setRepoDir } from './repoContext';
+import { registerViewTimelineCommand } from './viewTimeline';
+import {
+    registerFossilTimelineProvider,
+    notifyFossilTimelineChanged,
+    registerTimelineCommands,
+} from './fossilTimelineProvider';
 
 const execFileAsync = promisify(execFile);
 
+export { getRepoDir } from './repoContext';
+
 let extensionPath = '';
-let repoDir = '';
 let fossilSCM: vscode.SourceControl;
 let workingTree: vscode.SourceControlResourceGroup;
 let quickDiffProvider: FossilQuickDiffProvider;
 const statusByRelativePath = new Map<string, FileStatusEntry>();
 const emptyRenameMap = new Map<string, string>();
 
+function setCheckoutContext(): void {
+    void vscode.commands.executeCommand(
+        'setContext',
+        'fossil.hasCheckout',
+        Boolean(getRepoDir())
+    );
+}
+
 function createResourceUri(relativePath: string): vscode.Uri {
-    const absolutePath = path.join(repoDir, relativePath);
+    const absolutePath = path.join(getRepoDir(), relativePath);
     return vscode.Uri.file(absolutePath);
 }
 
@@ -48,32 +64,36 @@ function findFossilWorkspaceDir(): string | undefined {
 export function init(workspaceDir?: string) {
     const dir = workspaceDir ?? findFossilWorkspaceDir();
     if (!dir) {
+        setRepoDir('');
+        setCheckoutContext();
         return;
     }
-    if (repoDir === dir && fossilSCM) {
+    if (getRepoDir() === dir && fossilSCM) {
+        setCheckoutContext();
         return;
     }
-    repoDir = dir;
+    setRepoDir(dir);
     if (!fossilSCM) {
         fossilSCM = vscode.scm.createSourceControl(
             'fossil',
             'Fossil',
-            vscode.Uri.file(repoDir)
+            vscode.Uri.file(getRepoDir())
         );
         workingTree = fossilSCM.createResourceGroup('workingTree', 'Changes');
         workingTree.hideWhenEmpty = true;
         quickDiffProvider = new FossilQuickDiffProvider(
-            repoDir,
+            getRepoDir(),
             () => statusByRelativePath
         );
         fossilSCM.quickDiffProvider = quickDiffProvider;
     } else {
         quickDiffProvider = new FossilQuickDiffProvider(
-            repoDir,
+            getRepoDir(),
             () => statusByRelativePath
         );
         fossilSCM.quickDiffProvider = quickDiffProvider;
     }
+    setCheckoutContext();
 }
 
 enum Operation {
@@ -130,7 +150,7 @@ function buildResourceState(
         command: {
             command: 'fossil.openChange',
             title: 'Open Change',
-            arguments: [resourceUri, type, repoDir, priorPath],
+            arguments: [resourceUri, type, getRepoDir(), priorPath],
         },
         decorations: getDecorations(type),
     };
@@ -218,7 +238,7 @@ function getDecorations(
 }
 
 export async function getFossilStatus(): Promise<void> {
-    if (!repoDir) {
+    if (!getRepoDir()) {
         return;
     }
 
@@ -229,14 +249,14 @@ export async function getFossilStatus(): Promise<void> {
     let stdout: string;
     try {
         const result = await execFileAsync(fossilExePath, ['status'], {
-            cwd: repoDir,
+            cwd: getRepoDir(),
         });
         stdout = result.stdout;
     } catch (err: unknown) {
         const execErr = err as { stderr?: string; message?: string };
         console.log('Could not execute command.');
         console.log(`stderr: ${execErr.stderr ?? execErr.message}`);
-        console.log(`Repository directory: ${repoDir}`);
+        console.log(`Repository directory: ${getRepoDir()}`);
         return;
     }
 
@@ -252,7 +272,7 @@ export async function getFossilStatus(): Promise<void> {
         }
         const { type, relativePath: rawPath } = parsed;
         if (type === 'RENAMED' && renameMap === undefined) {
-            renameMap = await fetchRenameMap(fossilExePath, repoDir);
+            renameMap = await fetchRenameMap(fossilExePath, getRepoDir());
         }
         const normalizedPath = normalizeRelativePath(rawPath);
         const resourceUri = createResourceUri(rawPath);
@@ -269,12 +289,16 @@ export async function getFossilStatus(): Promise<void> {
     workingTree.resourceStates = states;
     fossilSCM.count = states.length;
     notifyFossilContentChanged();
+    notifyFossilTimelineChanged();
 }
 
 export function activate(context: vscode.ExtensionContext) {
     extensionPath = context.extensionPath;
     registerFossilContentProvider(context);
     registerOpenChangeCommand(context);
+    registerViewTimelineCommand(context);
+    registerFossilTimelineProvider(context);
+    registerTimelineCommands(context);
     init();
     void getFossilStatus();
     console.log('fossil-scm extension activated.');

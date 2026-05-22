@@ -88,6 +88,17 @@ suite('fossilContentProvider URIs', () => {
         const uri = toFossilEmptyUri('new.txt', repoDir);
         assert.equal(uri.scheme, 'fossil-empty');
     });
+
+    test('scm and quickdiff contexts produce distinct URIs', () => {
+        const scm = toFossilUri('src/a.txt', repoDir, undefined, 'scm');
+        const quickdiff = toFossilUri(
+            'src/a.txt',
+            repoDir,
+            undefined,
+            'quickdiff'
+        );
+        assert.notEqual(scm.toString(), quickdiff.toString());
+    });
 });
 
 suite('normalizeRelativePath', () => {

@@ -11,6 +11,9 @@
     "engines": {
         "vscode": "^1.95.0"
     },
+    "enabledApiProposals": [
+        "timeline"
+    ],
     "categories": [
         "Other"
     ],
@@ -29,8 +32,75 @@
                 "command": "fossil.openChange",
                 "title": "Open Fossil Change",
                 "icon": "$(diff)"
+            },
+            {
+                "command": "fossil.viewTimeline",
+                "title": "View Timeline (Output)",
+                "category": "Fossil"
+            },
+            {
+                "command": "fossil.viewTimeline.explorer",
+                "title": "View Timeline",
+                "category": "Fossil"
+            },
+            {
+                "command": "fossil.timeline.openDiff",
+                "title": "Open Diff",
+                "category": "Fossil",
+                "icon": "$(compare-changes)"
+            },
+            {
+                "command": "fossil.timeline.copyHash",
+                "title": "Copy Check-in ID",
+                "category": "Fossil"
             }
         ],
+        "menus": {
+            "scm/resourceState/context": [
+                {
+                    "command": "fossil.viewTimeline",
+                    "when": "scmProvider == fossil && scmResourceGroup == workingTree",
+                    "group": "navigation"
+                }
+            ],
+            "explorer/context": [
+                {
+                    "command": "fossil.viewTimeline.explorer",
+                    "when": "fossil.hasCheckout && resourceScheme == file && explorerResourceIsFolder == false",
+                    "group": "4_timeline"
+                }
+            ],
+            "timeline/item/context": [
+                {
+                    "command": "fossil.timeline.openDiff",
+                    "when": "fossil.hasCheckout && timelineItem == fossilCommit && !listMultiSelection",
+                    "group": "1_actions@1"
+                },
+                {
+                    "command": "fossil.timeline.copyHash",
+                    "when": "fossil.hasCheckout && timelineItem == fossilCommit && !listMultiSelection",
+                    "group": "5_copy@1"
+                }
+            ],
+            "commandPalette": [
+                {
+                    "command": "fossil.viewTimeline.explorer",
+                    "when": "fossil.hasCheckout && explorerViewletVisible && explorerResourceIsFolder == false"
+                },
+                {
+                    "command": "fossil.viewTimeline",
+                    "when": "fossil.hasCheckout && editorTextFocus && resourceScheme == file"
+                },
+                {
+                    "command": "fossil.timeline.openDiff",
+                    "when": "false"
+                },
+                {
+                    "command": "fossil.timeline.copyHash",
+                    "when": "false"
+                }
+            ]
+        },
         "configuration": {
             "type": "object",
             "title": "Fossil-SCM Configuration",
