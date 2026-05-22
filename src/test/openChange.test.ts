@@ -1,66 +1,79 @@
+//
+// Unit tests for open-change command resolution.
+//
+
 import * as assert from 'assert';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { resolveChangeCommand } from '../openChange';
-import { findMergeSidecars } from '../mergeConflict';
-import * as fs from 'fs';
-import * as os from 'os';
+import { parseVirtualUri } from '../fossilContentProvider';
 
-const repoDir = path.join(os.tmpdir(), 'fossil-openchange-test');
+const repoDir = '/tmp/test-repo';
+const filePath = path.join(repoDir, 'src', 'file.ts');
+const resourceUri = vscode.Uri.file(filePath);
 
-suite('openChange', () => {
-    test('CONFLICT opens working file not baseline diff', () => {
-        const filePath = path.join(repoDir, 'conflicted.txt');
-        const uri = vscode.Uri.file(filePath);
-        const cmd = resolveChangeCommand(uri, 'CONFLICT', repoDir, {
-            openDiffOnClick: true,
-        });
-        assert.equal(cmd.command, 'vscode.open');
-        assert.deepEqual(cmd.arguments, [uri]);
-    });
-
-    test('EDITED still opens diff when openDiffOnClick is true', () => {
-        const filePath = path.join(repoDir, 'edited.txt');
-        const uri = vscode.Uri.file(filePath);
-        const cmd = resolveChangeCommand(uri, 'EDITED', repoDir, {
+suite('resolveChangeCommand', () => {
+    test('EDITED opens vscode.diff with fossil left URI', () => {
+        const cmd = resolveChangeCommand(resourceUri, 'EDITED', repoDir, {
             openDiffOnClick: true,
         });
         assert.equal(cmd.command, 'vscode.diff');
-        assert.equal(cmd.arguments?.length, 3);
-    });
-});
-
-suite('mergeConflict', () => {
-    test('findMergeSidecars returns paths when all sidecars exist', () => {
-        const dir = fs.mkdtempSync(
-            path.join(os.tmpdir(), 'fossil-sidecar-')
-        );
-        const working = path.join(dir, 'file.txt');
-        try {
-            fs.writeFileSync(working, '<<<<<<< conflict\n');
-            fs.writeFileSync(`${working}-baseline`, 'base\n');
-            fs.writeFileSync(`${working}-original`, 'local\n');
-            fs.writeFileSync(`${working}-merge`, 'remote\n');
-            const sidecars = findMergeSidecars(working);
-            assert.ok(sidecars);
-            assert.equal(sidecars.baseline, `${working}-baseline`);
-            assert.equal(sidecars.original, `${working}-original`);
-            assert.equal(sidecars.merge, `${working}-merge`);
-        } finally {
-            fs.rmSync(dir, { recursive: true, force: true });
-        }
+        const left = cmd.arguments![0] as vscode.Uri;
+        assert.equal(left.scheme, 'fossil');
+        assert.equal(cmd.arguments![1], resourceUri);
     });
 
-    test('findMergeSidecars returns undefined when sidecars missing', () => {
-        const dir = fs.mkdtempSync(
-            path.join(os.tmpdir(), 'fossil-sidecar-missing-')
-        );
-        const working = path.join(dir, 'file.txt');
-        try {
-            fs.writeFileSync(working, 'no sidecars\n');
-            assert.equal(findMergeSidecars(working), undefined);
-        } finally {
-            fs.rmSync(dir, { recursive: true, force: true });
-        }
+    test('CONFLICT opens working file not baseline diff', () => {
+        const cmd = resolveChangeCommand(resourceUri, 'CONFLICT', repoDir, {
+            openDiffOnClick: true,
+        });
+        assert.equal(cmd.command, 'vscode.open');
+        assert.deepEqual(cmd.arguments, [resourceUri]);
+    });
+
+    test('ADDED opens vscode.diff with fossil-empty left URI', () => {
+        const cmd = resolveChangeCommand(resourceUri, 'ADDED', repoDir, {
+            openDiffOnClick: true,
+        });
+        assert.equal(cmd.command, 'vscode.diff');
+        const left = cmd.arguments![0] as vscode.Uri;
+        assert.equal(left.scheme, 'fossil-empty');
+    });
+
+    test('DELETED opens repository version only', () => {
+        const cmd = resolveChangeCommand(resourceUri, 'DELETED', repoDir, {
+            openDiffOnClick: true,
+        });
+        assert.equal(cmd.command, 'vscode.open');
+        const left = cmd.arguments![0] as vscode.Uri;
+        assert.equal(left.scheme, 'fossil');
+    });
+
+    test('RENAMED uses priorPath for left URI', () => {
+        const cmd = resolveChangeCommand(resourceUri, 'RENAMED', repoDir, {
+            openDiffOnClick: true,
+            priorPath: 'old/file.ts',
+        });
+        assert.equal(cmd.command, 'vscode.diff');
+        const left = cmd.arguments![0] as vscode.Uri;
+        const parsed = parseVirtualUri(left);
+        assert.equal(parsed.relativePath, 'old/file.ts');
+        assert.equal(parsed.repoDir, repoDir);
+    });
+
+    test('EXTRA opens working file only', () => {
+        const cmd = resolveChangeCommand(resourceUri, 'EXTRA', repoDir, {
+            openDiffOnClick: true,
+        });
+        assert.equal(cmd.command, 'vscode.open');
+        assert.equal(cmd.arguments![0], resourceUri);
+    });
+
+    test('openDiffOnClick false opens working file', () => {
+        const cmd = resolveChangeCommand(resourceUri, 'EDITED', repoDir, {
+            openDiffOnClick: false,
+        });
+        assert.equal(cmd.command, 'vscode.open');
+        assert.equal(cmd.arguments![0], resourceUri);
     });
 });

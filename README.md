@@ -22,6 +22,10 @@ Status icons are from the [Microsoft VS Code Git extension](https://github.com/m
 
 ![Fossil UI](doc/fossil-ui.png)
 
+### Multiple SCM per repo support
+
+![Multi-SCM](doc/multiple_scms.png)
+
 ## Features
 
 When you open a Fossil checkout (a workspace folder containing `.fslckout` or `_FOSSIL_`), the extension activates automatically and shows pending changes in the **Source Control** view under **Fossil → Changes** and **Fossil → Merge Conflicts**, based on `fossil status --differ` (tracked changes plus untracked files not covered by ignore rules).
@@ -52,7 +56,7 @@ The list refreshes when files in the workspace change (debounced to avoid excess
 
 **Opening changes:** Click a file under **Fossil → Changes** to open a diff against the checkout baseline (via `fossil cat`). Modified files compare repository vs working tree; added files compare an empty baseline vs the new file; deleted files open the repository version; renames compare the old path (baseline) vs the new path; unmanaged files open the working file only.
 
-**Merge conflicts:** Files with unresolved Fossil merge markers appear under **Fossil → Merge Conflicts** with a conflict icon. Click a conflicted file to open the working copy in the editor so VS Code’s inline merge conflict actions (Accept Current / Incoming / Both) can be used. Right-click for **Open in Merge Editor** when Fossil has left `*-baseline`, `*-original`, and `*-merge` sidecar files (for example after `fossil merge -K`). Remove all conflict markers before committing.
+**Merge conflicts:** Files with unresolved Fossil merge markers appear under **Fossil → Merge Conflicts** with a conflict icon. Click a conflicted file to open the working copy in the editor so VS Code’s inline merge conflict actions (Accept Current / Incoming / Both) can be used. For the 3-way merge editor when Fossil has left `*-baseline`, `*-original`, and `*-merge` sidecar files (for example after `fossil merge -K`), right-click the file under **Merge Conflicts** or run **Fossil: Open in Merge Editor** from the Command Palette with that file open in the editor. Remove all conflict markers before committing.
 
 **Editor gutter diff:** While editing a changed tracked file, VS Code shows inline **Fossil** quick diff markers comparing your edits to the checkout baseline.
 

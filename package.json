@@ -199,7 +199,7 @@
                 },
                 {
                     "command": "fossil.startUi",
-                    "when": "fossil.hasCheckout"
+                    "when": "fossil.hasCheckout && !fossil.uiRunning"
                 },
                 {
                     "command": "fossil.stopUi",
@@ -235,7 +235,7 @@
                 },
                 {
                     "command": "fossil.openMergeEditor",
-                    "when": "false"
+                    "when": "fossil.hasCheckout && editorTextFocus && resourceScheme == file"
                 }
             ]
         },
