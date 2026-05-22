@@ -3,6 +3,7 @@
 import * as vscode from 'vscode';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { normalizeRelativePath } from './paths';
 
 const execFileAsync = promisify(execFile);
 
@@ -16,7 +17,18 @@ export function getFossilContentChangeEvent(): vscode.Event<vscode.Uri> {
 }
 
 export function notifyFossilContentChanged(): void {
-    fossilChangeEmitter.fire(vscode.Uri.parse(`${FOSSIL_SCHEME}:`));
+    const notified = new Set<string>();
+    for (const doc of vscode.workspace.textDocuments) {
+        if (doc.uri.scheme !== FOSSIL_SCHEME) {
+            continue;
+        }
+        const key = doc.uri.toString();
+        if (notified.has(key)) {
+            continue;
+        }
+        notified.add(key);
+        fossilChangeEmitter.fire(doc.uri);
+    }
 }
 
 function buildVirtualUri(
@@ -24,7 +36,7 @@ function buildVirtualUri(
     relativePath: string,
     repoDir: string
 ): vscode.Uri {
-    const normalized = relativePath.replace(/\\/g, '/');
+    const normalized = normalizeRelativePath(relativePath);
     return vscode.Uri.from({
         scheme,
         path: '/' + normalized,

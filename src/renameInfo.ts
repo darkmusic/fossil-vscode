@@ -2,6 +2,7 @@
 
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { normalizeRelativePath } from './paths';
 
 const execFileAsync = promisify(execFile);
 
@@ -37,7 +38,10 @@ export async function fetchRenameMap(
                 file.name &&
                 file.priorName
             ) {
-                map.set(file.name, file.priorName);
+                map.set(
+                    normalizeRelativePath(file.name),
+                    normalizeRelativePath(file.priorName)
+                );
             }
         }
     } catch {
@@ -52,7 +56,10 @@ export function buildRenameMapFromJson(stdout: string): Map<string, string> {
     const files = json.payload?.files ?? [];
     for (const file of files) {
         if (file.state === 'renamed' && file.name && file.priorName) {
-            map.set(file.name, file.priorName);
+            map.set(
+                normalizeRelativePath(file.name),
+                normalizeRelativePath(file.priorName)
+            );
         }
     }
     return map;

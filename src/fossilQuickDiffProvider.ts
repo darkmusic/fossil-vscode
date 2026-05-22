@@ -3,6 +3,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { toFossilUri, toFossilEmptyUri } from './fossilContentProvider';
+import { normalizeRelativePath } from './paths';
 
 export interface FileStatusEntry {
     type: string;
@@ -34,9 +35,9 @@ export class FossilQuickDiffProvider implements vscode.QuickDiffProvider {
             return undefined;
         }
 
-        const relativePath = path
-            .relative(this.repoDir, uri.fsPath)
-            .replace(/\\/g, '/');
+        const relativePath = normalizeRelativePath(
+            path.relative(this.repoDir, uri.fsPath)
+        );
         const entry = this.getStatusByPath().get(relativePath);
         if (!entry) {
             return undefined;

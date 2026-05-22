@@ -7,6 +7,7 @@ import {
     toFossilUri,
     toFossilEmptyUri,
 } from './fossilContentProvider';
+import { normalizeRelativePath } from './paths';
 
 export type FossilChangeType =
     | 'DELETED'
@@ -39,7 +40,9 @@ function relativePathFromUri(
     resourceUri: vscode.Uri,
     repoDir: string
 ): string {
-    return path.relative(repoDir, resourceUri.fsPath);
+    return normalizeRelativePath(
+        path.relative(repoDir, resourceUri.fsPath)
+    );
 }
 
 function diffTitle(
@@ -112,8 +115,9 @@ export function resolveChangeCommand(
             };
         }
         case 'RENAMED': {
-            const prior =
-                options?.priorPath ?? relativePath;
+            const prior = normalizeRelativePath(
+                options?.priorPath ?? relativePath
+            );
             const left = toFossilUri(prior, repoDir);
             return {
                 command: 'vscode.diff',

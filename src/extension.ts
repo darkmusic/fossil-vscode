@@ -15,6 +15,7 @@ import {
     FossilQuickDiffProvider,
     FileStatusEntry,
 } from './fossilQuickDiffProvider';
+import { normalizeRelativePath } from './paths';
 
 const execFileAsync = promisify(execFile);
 
@@ -24,6 +25,7 @@ let fossilSCM: vscode.SourceControl;
 let workingTree: vscode.SourceControlResourceGroup;
 let quickDiffProvider: FossilQuickDiffProvider;
 const statusByRelativePath = new Map<string, FileStatusEntry>();
+const emptyRenameMap = new Map<string, string>();
 
 function createResourceUri(relativePath: string): vscode.Uri {
     const absolutePath = path.join(repoDir, relativePath);
@@ -112,13 +114,13 @@ export function getStateCount(): number {
 function buildResourceState(
     resourceUri: vscode.Uri,
     type: string,
-    relativePath: string,
+    normalizedPath: string,
     renameMap: Map<string, string>
 ): vscode.SourceControlResourceState {
     const priorPath =
-        type === 'RENAMED' ? renameMap.get(relativePath) : undefined;
+        type === 'RENAMED' ? renameMap.get(normalizedPath) : undefined;
 
-    statusByRelativePath.set(relativePath, {
+    statusByRelativePath.set(normalizedPath, {
         type,
         priorPath,
     });
@@ -239,19 +241,28 @@ export async function getFossilStatus(): Promise<void> {
     }
 
     statusByRelativePath.clear();
-    const renameMap = await fetchRenameMap(fossilExePath, repoDir);
 
     const states: vscode.SourceControlResourceState[] = [];
+    let renameMap: Map<string, string> | undefined;
 
     for (const line of stdout.split('\n')) {
         const parsed = parseStatusLine(line);
         if (!parsed) {
             continue;
         }
-        const { type, relativePath } = parsed;
-        const resourceUri = createResourceUri(relativePath);
+        const { type, relativePath: rawPath } = parsed;
+        if (type === 'RENAMED' && renameMap === undefined) {
+            renameMap = await fetchRenameMap(fossilExePath, repoDir);
+        }
+        const normalizedPath = normalizeRelativePath(rawPath);
+        const resourceUri = createResourceUri(rawPath);
         states.push(
-            buildResourceState(resourceUri, type, relativePath, renameMap)
+            buildResourceState(
+                resourceUri,
+                type,
+                normalizedPath,
+                renameMap ?? emptyRenameMap
+            )
         );
     }
 

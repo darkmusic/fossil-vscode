@@ -12,6 +12,7 @@ import {
     parseVirtualUri,
 } from '../fossilContentProvider';
 import { buildRenameMapFromJson } from '../renameInfo';
+import { normalizeRelativePath } from '../paths';
 
 const repoDir = '/tmp/test-repo';
 const filePath = path.join(repoDir, 'src', 'file.ts');
@@ -89,6 +90,15 @@ suite('fossilContentProvider URIs', () => {
     });
 });
 
+suite('normalizeRelativePath', () => {
+    test('converts backslashes to forward slashes', () => {
+        assert.equal(
+            normalizeRelativePath('src\\dir\\file.ts'),
+            'src/dir/file.ts'
+        );
+    });
+});
+
 suite('buildRenameMapFromJson', () => {
     test('extracts priorName for renamed files', () => {
         const json = JSON.stringify({
@@ -96,15 +106,15 @@ suite('buildRenameMapFromJson', () => {
                 files: [
                     {
                         state: 'renamed',
-                        name: 'new.txt',
-                        priorName: 'old.txt',
+                        name: 'dir\\new.txt',
+                        priorName: 'dir\\old.txt',
                     },
                     { state: 'edited', name: 'other.txt' },
                 ],
             },
         });
         const map = buildRenameMapFromJson(json);
-        assert.equal(map.get('new.txt'), 'old.txt');
+        assert.equal(map.get('dir/new.txt'), 'dir/old.txt');
         assert.equal(map.size, 1);
     });
 });
