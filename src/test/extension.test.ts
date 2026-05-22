@@ -56,6 +56,22 @@ suite('Extension Tests', function () {
         );
     });
 
+    test('Unmanaged file appears in status', async function () {
+        const untrackedPath = path.join(testRepoPath, 'untracked-test.txt');
+        fs.writeFileSync(untrackedPath, 'new file\n');
+        try {
+            await fossilSCM.getFossilStatus();
+            assert.equal(
+                fossilSCM.getStateCount(),
+                1,
+                'State count should be 1 for unmanaged file, but was: ' +
+                    fossilSCM.getStateCount()
+            );
+        } finally {
+            fs.unlinkSync(untrackedPath);
+        }
+    });
+
     test('Add file and retrieve status', async function () {
         execSync(`fossil add "${file1Path}"`, { cwd: testRepoPath });
         await fossilSCM.getFossilStatus();

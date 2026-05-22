@@ -15,7 +15,8 @@
         "Other"
     ],
     "activationEvents": [
-        "onCommand:extension.fossilSCM"
+        "workspaceContains:**/.fslckout",
+        "workspaceContains:**/_FOSSIL_"
     ],
     "main": "./out/extension",
     "contributes": {
@@ -38,9 +39,13 @@
         }
     },
     "scripts": {
-        "vscode:prepublish": "npm run compile",
         "compile": "tsc -p ./",
-        "watch": "tsc -watch -p ./",
+        "check-types": "tsc --noEmit",
+        "watch": "npm-run-all -p watch:*",
+        "watch:esbuild": "node esbuild.js --watch",
+        "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+        "vscode:prepublish": "npm run package",
+        "package": "npm run check-types && node esbuild.js --production",
         "pretest": "npm run compile",
         "test": "vscode-test"
     },
@@ -50,6 +55,8 @@
         "@types/vscode": "^1.95.0",
         "@vscode/test-cli": "^0.0.12",
         "@vscode/test-electron": "^2.5.2",
+        "esbuild": "^0.28.0",
+        "npm-run-all": "^4.1.5",
         "typescript": "^5.8.3"
     },
     "overrides": {

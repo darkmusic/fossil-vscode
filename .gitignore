@@ -5,3 +5,5 @@ node_modules
 *.code-workspace
 src/test/test_repo/_FOSSIL_
 src/test/test_repo/.fslckout
+dist
+*.vsix
