@@ -31,39 +31,63 @@ export function notifyFossilContentChanged(): void {
     }
 }
 
+/** Distinguishes virtual documents so diff/quick-diff editors do not share one model. */
+export type FossilUriContext = 'quickdiff' | 'scm' | 'timeline';
+
 function buildVirtualUri(
     scheme: string,
     relativePath: string,
-    repoDir: string
+    repoDir: string,
+    rev?: string,
+    ctx?: FossilUriContext
 ): vscode.Uri {
     const normalized = normalizeRelativePath(relativePath);
+    const params = new URLSearchParams();
+    params.set('root', repoDir);
+    if (rev) {
+        params.set('rev', rev);
+    }
+    if (ctx) {
+        params.set('ctx', ctx);
+    }
     return vscode.Uri.from({
         scheme,
         path: '/' + normalized,
-        query: `root=${encodeURIComponent(repoDir)}`,
+        query: params.toString(),
     });
 }
 
-export function toFossilUri(relativePath: string, repoDir: string): vscode.Uri {
-    return buildVirtualUri(FOSSIL_SCHEME, relativePath, repoDir);
+export function toFossilUri(
+    relativePath: string,
+    repoDir: string,
+    rev?: string,
+    ctx: FossilUriContext = 'scm'
+): vscode.Uri {
+    return buildVirtualUri(FOSSIL_SCHEME, relativePath, repoDir, rev, ctx);
 }
 
 export function toFossilEmptyUri(
     relativePath: string,
-    repoDir: string
+    repoDir: string,
+    ctx: FossilUriContext = 'scm'
 ): vscode.Uri {
-    return buildVirtualUri(FOSSIL_EMPTY_SCHEME, relativePath, repoDir);
+    return buildVirtualUri(FOSSIL_EMPTY_SCHEME, relativePath, repoDir, undefined, ctx);
 }
 
 export function parseVirtualUri(uri: vscode.Uri): {
     relativePath: string;
     repoDir: string;
+    rev?: string;
+    ctx?: string;
 } {
-    const repoDir = new URLSearchParams(uri.query).get('root') ?? '';
+    const params = new URLSearchParams(uri.query);
+    const repoDir = params.get('root') ?? '';
+    const rev = params.get('rev') ?? undefined;
+    const ctx = params.get('ctx') ?? undefined;
     const relativePath = uri.path.startsWith('/')
         ? uri.path.slice(1)
         : uri.path;
-    return { relativePath, repoDir };
+    return { relativePath, repoDir, rev, ctx };
 }
 
 function getFossilExePath(): string {
@@ -75,10 +99,14 @@ function getFossilExePath(): string {
 export async function runFossilCat(
     relativePath: string,
     repoDir: string,
-    fossilExePath?: string
+    fossilExePath?: string,
+    rev?: string
 ): Promise<string> {
     const exe = fossilExePath ?? getFossilExePath();
-    const result = await execFileAsync(exe, ['cat', relativePath], {
+    const args = rev
+        ? ['cat', '-r', rev, relativePath]
+        : ['cat', relativePath];
+    const result = await execFileAsync(exe, args, {
         cwd: repoDir,
     });
     return result.stdout;
@@ -88,12 +116,12 @@ class FossilBaselineProvider implements vscode.TextDocumentContentProvider {
     onDidChange = fossilChangeEmitter.event;
 
     async provideTextDocumentContent(uri: vscode.Uri): Promise<string> {
-        const { relativePath, repoDir } = parseVirtualUri(uri);
+        const { relativePath, repoDir, rev } = parseVirtualUri(uri);
         if (!repoDir || !relativePath) {
             return '';
         }
         try {
-            return await runFossilCat(relativePath, repoDir);
+            return await runFossilCat(relativePath, repoDir, undefined, rev);
         } catch (err: unknown) {
             const execErr = err as { stderr?: string; message?: string };
             const message =
