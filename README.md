@@ -35,11 +35,12 @@ The list refreshes when files in the workspace change (debounced to avoid excess
 
 **SCM actions:**
 
-- **Refresh** — toolbar refresh button or **Fossil: Refresh** / **Fossil SCM** (Command Palette) runs `fossil status` immediately.
+- **Refresh** — toolbar refresh button or **Fossil: Refresh** / **Fossil SCM** (Command Palette) refreshes the Changes list immediately.
+- **Sync** — toolbar sync button or **Fossil: Sync** runs `fossil sync` with the default remote (the URL from the most recent clone, pull, push, remote, or sync). Refreshes the Changes list when sync finishes.
 - **Commit** — enter a message in the SCM input box, then click the checkmark or press Ctrl+Enter (Cmd+Enter on macOS) to run `fossil commit -m`.
 - **Add to checkout** (+) — right-click an unmanaged file to run `fossil add`.
 - **Reset add** (−) — right-click an added file to run `fossil add --reset`.
-- **Revert** — right-click a changed tracked file to run `fossil revert` (not shown for untracked `EXTRA` files).
+- **Revert** — right-click a changed tracked file to run `fossil revert` (not shown for unmanaged `EXTRA` / `UNMANAGE` files).
 
 **Opening changes:** Click a file under **Fossil → Changes** to open a diff against the checkout baseline (via `fossil cat`). Modified and conflict files compare repository vs working tree; added files compare an empty baseline vs the new file; deleted files open the repository version; renames compare the old path (baseline) vs the new path; unmanaged files open the working file only.
 

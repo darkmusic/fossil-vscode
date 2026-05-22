@@ -16,17 +16,40 @@ export function createStatusRefreshScheduler(
     let timer: ReturnType<typeof setTimeout> | undefined;
     let inFlight: Promise<void> | undefined;
     let pendingRefresh = false;
+    let disposed = false;
+
+    function logRefreshError(err: unknown): void {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('Fossil status refresh failed:', message);
+    }
+
+    /** Fire-and-forget refresh; logs rejections from watcher-driven paths. */
+    function fireRefresh(): void {
+        if (disposed) {
+            return;
+        }
+        void runRefresh().catch(logRefreshError);
+    }
 
     async function runRefresh(): Promise<void> {
+        if (disposed) {
+            return;
+        }
         if (inFlight) {
-            pendingRefresh = true;
+            if (!disposed) {
+                pendingRefresh = true;
+            }
             return inFlight;
         }
         inFlight = refresh().finally(() => {
             inFlight = undefined;
+            if (disposed) {
+                pendingRefresh = false;
+                return;
+            }
             if (pendingRefresh) {
                 pendingRefresh = false;
-                void runRefresh();
+                fireRefresh();
             }
         });
         return inFlight;
@@ -34,15 +57,21 @@ export function createStatusRefreshScheduler(
 
     return {
         schedule(): void {
+            if (disposed) {
+                return;
+            }
             if (timer !== undefined) {
                 clearTimeout(timer);
             }
             timer = setTimeout(() => {
                 timer = undefined;
-                void runRefresh();
+                fireRefresh();
             }, debounceMs);
         },
         refreshNow(): Promise<void> {
+            if (disposed) {
+                return Promise.resolve();
+            }
             if (timer !== undefined) {
                 clearTimeout(timer);
                 timer = undefined;
@@ -50,6 +79,8 @@ export function createStatusRefreshScheduler(
             return runRefresh();
         },
         dispose(): void {
+            disposed = true;
+            pendingRefresh = false;
             if (timer !== undefined) {
                 clearTimeout(timer);
                 timer = undefined;

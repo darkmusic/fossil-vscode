@@ -172,6 +172,30 @@ export function registerFossilScmCommands(
             } catch (err) {
                 showFossilError(err);
             }
+        }),
+        vscode.commands.registerCommand('fossil.sync', async () => {
+            const repoDir = requireRepo();
+            if (!repoDir) {
+                return;
+            }
+            try {
+                await vscode.window.withProgress(
+                    {
+                        location: vscode.ProgressLocation.Notification,
+                        title: 'Fossil Sync',
+                        cancellable: false,
+                    },
+                    async () => {
+                        await runFossil(['sync'], repoDir);
+                    }
+                );
+                await refreshFossilStatusNow();
+                void vscode.window.showInformationMessage(
+                    'Fossil sync completed.'
+                );
+            } catch (err) {
+                showFossilError(err);
+            }
         })
     );
 }

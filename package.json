@@ -60,6 +60,12 @@
                 "icon": "$(check)"
             },
             {
+                "command": "fossil.sync",
+                "title": "Sync",
+                "category": "Fossil",
+                "icon": "$(sync)"
+            },
+            {
                 "command": "fossil.openChange",
                 "title": "Open Fossil Change",
                 "icon": "$(diff)"
@@ -94,9 +100,14 @@
                     "group": "navigation@1"
                 },
                 {
-                    "command": "fossil.commit",
+                    "command": "fossil.sync",
                     "when": "scmProvider == fossil",
                     "group": "navigation@2"
+                },
+                {
+                    "command": "fossil.commit",
+                    "when": "scmProvider == fossil",
+                    "group": "navigation@3"
                 }
             ],
             "scm/resourceState/context": [
@@ -112,7 +123,7 @@
                 },
                 {
                     "command": "fossil.revert",
-                    "when": "scmProvider == fossil && scmResourceState != extra",
+                    "when": "scmProvider == fossil && (scmResourceState == edited || scmResourceState == deleted || scmResourceState == added || scmResourceState == renamed || scmResourceState == conflict)",
                     "group": "1_sync@3"
                 },
                 {
@@ -147,6 +158,10 @@
                 },
                 {
                     "command": "fossil.commit",
+                    "when": "fossil.hasCheckout"
+                },
+                {
+                    "command": "fossil.sync",
                     "when": "fossil.hasCheckout"
                 },
                 {
