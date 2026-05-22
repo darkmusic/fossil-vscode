@@ -26,11 +26,9 @@ jobs:
 
       - run: npm ci
 
-      - run: npm install --save-dev @vscode/test-electron
-
       - run: npm run check-types
 
-      - run: npm run compile && node esbuild.js --production
+      - run: npm run compile
 
       - name: Install Fossil
         run: sudo apt-get update && sudo apt-get install -y fossil
@@ -38,10 +36,5 @@ jobs:
       - name: Open test repository
         run: cd src/test/test_repo && fossil open TestRepo.fossil -f
 
-      - name: Download VS Code
-        run: npx @vscode/test-electron download --platform linux-x64
-
       - name: Run tests
         run: xvfb-run -a npm test
-        env:
-          VSCODE_EXECUTABLE_PATH: ${{ github.workspace }}/.vscode-test/vscode-linux-x64/code
