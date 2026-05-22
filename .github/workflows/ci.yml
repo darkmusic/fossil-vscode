@@ -26,7 +26,7 @@ jobs:
 
       - run: npm ci
 
-      - run: npm install --save-dev @vscode/test
+      - run: npm install --save-dev @vscode/test-electron
 
       - run: npm run check-types
 
