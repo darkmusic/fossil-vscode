@@ -94,9 +94,16 @@ async function runTextTimeline(relativePath: string): Promise<void> {
             'fossil timeline failed';
         channel.replace(`${header}\n\n${detail}`);
         channel.show(true);
-        void vscode.window.showErrorMessage(
-            `Fossil timeline failed: ${detail}`
-        );
+        void vscode.window
+            .showErrorMessage(
+                'Fossil timeline failed. See the Fossil Timeline output for details.',
+                'Show Output'
+            )
+            .then((choice) => {
+                if (choice === 'Show Output') {
+                    channel.show(true);
+                }
+            });
     }
 }
 

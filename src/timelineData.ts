@@ -162,14 +162,23 @@ export async function fetchCheckinTimelineForPath(
     repoDir: string,
     relativePath: string,
     limit: number,
-    skip = 0
-): Promise<FetchCheckinTimelineResult> {
+    skip = 0,
+    token?: vscode.CancellationToken
+): Promise<FetchCheckinTimelineResult | undefined> {
+    if (token?.isCancellationRequested) {
+        return undefined;
+    }
+
     const filtered: TimelineCheckinEntry[] = [];
     let rawOffset = 0;
     let skipped = 0;
     let hasMore = false;
 
     outer: while (true) {
+        if (token?.isCancellationRequested) {
+            return undefined;
+        }
+
         const batch = await fetchCheckinTimelineBatch(
             fossilExePath,
             repoDir,
@@ -177,6 +186,11 @@ export async function fetchCheckinTimelineForPath(
             rawOffset,
             true
         );
+
+        if (token?.isCancellationRequested) {
+            return undefined;
+        }
+
         if (batch.length === 0) {
             break;
         }

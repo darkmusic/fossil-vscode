@@ -70,6 +70,18 @@
                     "group": "4_timeline"
                 }
             ],
+            "timeline/item/context": [
+                {
+                    "command": "fossil.timeline.openDiff",
+                    "when": "fossil.hasCheckout && timelineItem == fossilCommit && !listMultiSelection",
+                    "group": "1_actions@1"
+                },
+                {
+                    "command": "fossil.timeline.copyHash",
+                    "when": "fossil.hasCheckout && timelineItem == fossilCommit && !listMultiSelection",
+                    "group": "5_copy@1"
+                }
+            ],
             "commandPalette": [
                 {
                     "command": "fossil.viewTimeline.explorer",
