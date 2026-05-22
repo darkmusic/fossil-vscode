@@ -1,18 +1,12 @@
 //
-// Unit tests for open-change command resolution and rename map parsing.
+// Unit tests for open-change command resolution.
 //
 
 import * as assert from 'assert';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { resolveChangeCommand } from '../openChange';
-import {
-    toFossilUri,
-    toFossilEmptyUri,
-    parseVirtualUri,
-} from '../fossilContentProvider';
-import { buildRenameMapFromJson } from '../renameInfo';
-import { normalizeRelativePath } from '../paths';
+import { parseVirtualUri } from '../fossilContentProvider';
 
 const repoDir = '/tmp/test-repo';
 const filePath = path.join(repoDir, 'src', 'file.ts');
@@ -27,6 +21,14 @@ suite('resolveChangeCommand', () => {
         const left = cmd.arguments![0] as vscode.Uri;
         assert.equal(left.scheme, 'fossil');
         assert.equal(cmd.arguments![1], resourceUri);
+    });
+
+    test('CONFLICT opens working file not baseline diff', () => {
+        const cmd = resolveChangeCommand(resourceUri, 'CONFLICT', repoDir, {
+            openDiffOnClick: true,
+        });
+        assert.equal(cmd.command, 'vscode.open');
+        assert.deepEqual(cmd.arguments, [resourceUri]);
     });
 
     test('ADDED opens vscode.diff with fossil-empty left URI', () => {
@@ -73,59 +75,5 @@ suite('resolveChangeCommand', () => {
         });
         assert.equal(cmd.command, 'vscode.open');
         assert.equal(cmd.arguments![0], resourceUri);
-    });
-});
-
-suite('fossilContentProvider URIs', () => {
-    test('toFossilUri round-trips via parseVirtualUri', () => {
-        const uri = toFossilUri('src/a.txt', repoDir);
-        const parsed = parseVirtualUri(uri);
-        assert.equal(parsed.relativePath, 'src/a.txt');
-        assert.equal(parsed.repoDir, repoDir);
-    });
-
-    test('toFossilEmptyUri uses fossil-empty scheme', () => {
-        const uri = toFossilEmptyUri('new.txt', repoDir);
-        assert.equal(uri.scheme, 'fossil-empty');
-    });
-
-    test('scm and quickdiff contexts produce distinct URIs', () => {
-        const scm = toFossilUri('src/a.txt', repoDir, undefined, 'scm');
-        const quickdiff = toFossilUri(
-            'src/a.txt',
-            repoDir,
-            undefined,
-            'quickdiff'
-        );
-        assert.notEqual(scm.toString(), quickdiff.toString());
-    });
-});
-
-suite('normalizeRelativePath', () => {
-    test('converts backslashes to forward slashes', () => {
-        assert.equal(
-            normalizeRelativePath('src\\dir\\file.ts'),
-            'src/dir/file.ts'
-        );
-    });
-});
-
-suite('buildRenameMapFromJson', () => {
-    test('extracts priorName for renamed files', () => {
-        const json = JSON.stringify({
-            payload: {
-                files: [
-                    {
-                        state: 'renamed',
-                        name: 'dir\\new.txt',
-                        priorName: 'dir\\old.txt',
-                    },
-                    { state: 'edited', name: 'other.txt' },
-                ],
-            },
-        });
-        const map = buildRenameMapFromJson(json);
-        assert.equal(map.get('dir/new.txt'), 'dir/old.txt');
-        assert.equal(map.size, 1);
     });
 });

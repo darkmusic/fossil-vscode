@@ -89,8 +89,13 @@ export function resolveChangeCommand(
     const title = diffTitle(relativePath, options?.priorPath);
 
     switch (changeType as FossilChangeType) {
-        case 'EDITED':
-        case 'CONFLICT': {
+        case 'CONFLICT':
+            return {
+                command: 'vscode.open',
+                title: 'Resolve Conflict',
+                arguments: [resourceUri],
+            };
+        case 'EDITED': {
             const left = toFossilUri(relativePath, repoDir);
             return {
                 command: 'vscode.diff',

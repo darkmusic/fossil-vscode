@@ -7,6 +7,7 @@ import { toAbsolutePathInsideRepo } from './paths';
 export interface FossilScmCommandDeps {
     getRepoDir: () => string;
     getFossilSCM: () => vscode.SourceControl | undefined;
+    getConflictCount: () => number;
     refreshFossilStatusNow: () => Promise<void>;
 }
 
@@ -103,7 +104,8 @@ export function registerFossilScmCommands(
     context: vscode.ExtensionContext,
     deps: FossilScmCommandDeps
 ): void {
-    const { getRepoDir, getFossilSCM, refreshFossilStatusNow } = deps;
+    const { getRepoDir, getFossilSCM, getConflictCount, refreshFossilStatusNow } =
+        deps;
 
     function requireRepo(): string | undefined {
         const repoDir = getRepoDir();
@@ -214,9 +216,16 @@ export function registerFossilScmCommands(
                     }
                 );
                 await refreshFossilStatusNow();
-                void vscode.window.showInformationMessage(
-                    'Fossil sync completed.'
-                );
+                const conflicts = getConflictCount();
+                if (conflicts > 0) {
+                    void vscode.window.showWarningMessage(
+                        `Fossil sync finished with ${conflicts} merge conflict(s). Open Merge Conflicts in Source Control to resolve.`
+                    );
+                } else {
+                    void vscode.window.showInformationMessage(
+                        'Fossil sync completed.'
+                    );
+                }
             } catch (err) {
                 showFossilError(err);
             }

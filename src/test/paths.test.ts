@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import * as path from 'path';
 import {
     isAbsolutePathInsideRepo,
+    normalizeRelativePath,
     toAbsolutePathInsideRepo,
 } from '../paths';
 
@@ -14,6 +15,13 @@ suite('paths', () => {
         assert.ok(
             isAbsolutePathInsideRepo(repoDir, inside!),
             'resolved path should be inside repo'
+        );
+    });
+
+    test('normalizeRelativePath converts backslashes to forward slashes', () => {
+        assert.equal(
+            normalizeRelativePath('src\\dir\\file.ts'),
+            'src/dir/file.ts'
         );
     });
 
