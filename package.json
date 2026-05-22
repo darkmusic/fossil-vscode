@@ -26,7 +26,44 @@
         "commands": [
             {
                 "command": "extension.fossilSCM",
-                "title": "Fossil SCM"
+                "title": "Fossil SCM",
+                "icon": "$(refresh)"
+            },
+            {
+                "command": "fossil.refresh",
+                "title": "Refresh",
+                "category": "Fossil",
+                "icon": "$(refresh)"
+            },
+            {
+                "command": "fossil.add",
+                "title": "Add to Checkout",
+                "category": "Fossil",
+                "icon": "$(add)"
+            },
+            {
+                "command": "fossil.resetAdd",
+                "title": "Reset Add",
+                "category": "Fossil",
+                "icon": "$(remove)"
+            },
+            {
+                "command": "fossil.revert",
+                "title": "Revert",
+                "category": "Fossil",
+                "icon": "$(discard)"
+            },
+            {
+                "command": "fossil.commit",
+                "title": "Commit",
+                "category": "Fossil",
+                "icon": "$(check)"
+            },
+            {
+                "command": "fossil.sync",
+                "title": "Sync",
+                "category": "Fossil",
+                "icon": "$(sync)"
             },
             {
                 "command": "fossil.openChange",
@@ -56,7 +93,39 @@
             }
         ],
         "menus": {
+            "scm/title": [
+                {
+                    "command": "fossil.refresh",
+                    "when": "scmProvider == fossil",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "fossil.sync",
+                    "when": "scmProvider == fossil",
+                    "group": "navigation@2"
+                },
+                {
+                    "command": "fossil.commit",
+                    "when": "scmProvider == fossil",
+                    "group": "navigation@3"
+                }
+            ],
             "scm/resourceState/context": [
+                {
+                    "command": "fossil.add",
+                    "when": "scmProvider == fossil && (scmResourceState == extra || scmResourceState == unmanage)",
+                    "group": "1_sync@1"
+                },
+                {
+                    "command": "fossil.resetAdd",
+                    "when": "scmProvider == fossil && scmResourceState == added",
+                    "group": "1_sync@2"
+                },
+                {
+                    "command": "fossil.revert",
+                    "when": "scmProvider == fossil && (scmResourceState == edited || scmResourceState == deleted || scmResourceState == added || scmResourceState == renamed || scmResourceState == conflict)",
+                    "group": "1_sync@3"
+                },
                 {
                     "command": "fossil.viewTimeline",
                     "when": "scmProvider == fossil && scmResourceGroup == workingTree",
@@ -83,6 +152,30 @@
                 }
             ],
             "commandPalette": [
+                {
+                    "command": "fossil.refresh",
+                    "when": "fossil.hasCheckout"
+                },
+                {
+                    "command": "fossil.commit",
+                    "when": "fossil.hasCheckout"
+                },
+                {
+                    "command": "fossil.sync",
+                    "when": "fossil.hasCheckout"
+                },
+                {
+                    "command": "fossil.add",
+                    "when": "false"
+                },
+                {
+                    "command": "fossil.resetAdd",
+                    "when": "false"
+                },
+                {
+                    "command": "fossil.revert",
+                    "when": "false"
+                },
                 {
                     "command": "fossil.viewTimeline.explorer",
                     "when": "fossil.hasCheckout && explorerViewletVisible && explorerResourceIsFolder == false"

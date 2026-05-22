@@ -1,10 +1,7 @@
 'use strict';
 
-import { execFile } from 'child_process';
-import { promisify } from 'util';
 import { normalizeRelativePath } from './paths';
-
-const execFileAsync = promisify(execFile);
+import { runFossil } from './fossilCli';
 
 interface JsonStatusFile {
     name?: string;
@@ -27,9 +24,11 @@ export async function fetchRenameMap(
 ): Promise<Map<string, string>> {
     const map = new Map<string, string>();
     try {
-        const result = await execFileAsync(fossilExePath, ['json', 'status'], {
-            cwd: repoDir,
-        });
+        const result = await runFossil(
+            ['json', 'status'],
+            repoDir,
+            fossilExePath
+        );
         const json = JSON.parse(result.stdout) as JsonStatusResponse;
         const files = json.payload?.files ?? [];
         for (const file of files) {

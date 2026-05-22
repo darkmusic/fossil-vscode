@@ -3,8 +3,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
 import {
     registerFossilContentProvider,
     notifyFossilContentChanged,
@@ -23,8 +21,9 @@ import {
     notifyFossilTimelineChanged,
     registerTimelineCommands,
 } from './fossilTimelineProvider';
-
-const execFileAsync = promisify(execFile);
+import { getFossilExePath, runFossil, FossilCommandError } from './fossilCli';
+import { registerFossilScmCommands } from './fossilScmCommands';
+import { createStatusRefreshScheduler } from './statusRefresh';
 
 export { getRepoDir } from './repoContext';
 
@@ -41,6 +40,22 @@ function setCheckoutContext(): void {
         'fossil.hasCheckout',
         Boolean(getRepoDir())
     );
+}
+
+function getFossilSCM(): vscode.SourceControl | undefined {
+    return fossilSCM;
+}
+
+function setupScmInputBox(): void {
+    if (!fossilSCM) {
+        return;
+    }
+    fossilSCM.inputBox.placeholder = 'Commit message';
+    fossilSCM.acceptInputCommand = {
+        command: 'fossil.commit',
+        title: 'Commit',
+        arguments: [],
+    };
 }
 
 function createResourceUri(relativePath: string): vscode.Uri {
@@ -81,6 +96,7 @@ export function init(workspaceDir?: string) {
         );
         workingTree = fossilSCM.createResourceGroup('workingTree', 'Changes');
         workingTree.hideWhenEmpty = true;
+        setupScmInputBox();
         quickDiffProvider = new FossilQuickDiffProvider(
             getRepoDir(),
             () => statusByRelativePath
@@ -127,6 +143,10 @@ function parseStatusLine(line: string): { type: string; relativePath: string } |
     return { type: match[1], relativePath: match[2].trim() };
 }
 
+function contextValueForType(type: string): string {
+    return type.toLowerCase();
+}
+
 export function getStateCount(): number {
     return fossilSCM?.count ?? 0;
 }
@@ -147,6 +167,7 @@ function buildResourceState(
 
     return {
         resourceUri,
+        contextValue: contextValueForType(type),
         command: {
             command: 'fossil.openChange',
             title: 'Open Change',
@@ -238,24 +259,23 @@ function getDecorations(
 }
 
 export async function getFossilStatus(): Promise<void> {
-    if (!getRepoDir()) {
+    if (!getRepoDir() || !workingTree) {
         return;
     }
 
-    const fossilExePath = vscode.workspace
-        .getConfiguration('fossilScm')
-        .get<string>('fossilExePath', 'fossil');
-
     let stdout: string;
     try {
-        const result = await execFileAsync(fossilExePath, ['status'], {
-            cwd: getRepoDir(),
-        });
+        const result = await runFossil(['status', '--differ'], getRepoDir());
         stdout = result.stdout;
     } catch (err: unknown) {
-        const execErr = err as { stderr?: string; message?: string };
-        console.log('Could not execute command.');
-        console.log(`stderr: ${execErr.stderr ?? execErr.message}`);
+        const message =
+            err instanceof FossilCommandError
+                ? err.stderr
+                : err instanceof Error
+                  ? err.message
+                  : String(err);
+        console.log('Could not execute fossil status.');
+        console.log(`stderr: ${message}`);
         console.log(`Repository directory: ${getRepoDir()}`);
         return;
     }
@@ -264,6 +284,7 @@ export async function getFossilStatus(): Promise<void> {
 
     const states: vscode.SourceControlResourceState[] = [];
     let renameMap: Map<string, string> | undefined;
+    const fossilExePath = getFossilExePath();
 
     for (const line of stdout.split('\n')) {
         const parsed = parseStatusLine(line);
@@ -300,35 +321,32 @@ export function activate(context: vscode.ExtensionContext) {
     registerFossilTimelineProvider(context);
     registerTimelineCommands(context);
     init();
-    void getFossilStatus();
+
+    const statusScheduler = createStatusRefreshScheduler(
+        () => getFossilStatus()
+    );
+    context.subscriptions.push({ dispose: () => statusScheduler.dispose() });
+
+    registerFossilScmCommands(context, {
+        getRepoDir,
+        getFossilSCM,
+        refreshFossilStatusNow: () => statusScheduler.refreshNow(),
+    });
+
+    void statusScheduler.refreshNow();
     console.log('fossil-scm extension activated.');
 
     context.subscriptions.push(
         vscode.workspace.onDidChangeWorkspaceFolders(() => {
             init();
-            void getFossilStatus();
+            void statusScheduler.refreshNow();
         })
     );
 
     const fsWatcher = vscode.workspace.createFileSystemWatcher('**');
-    fsWatcher.onDidChange(() => {
-        void getFossilStatus();
-    });
-    fsWatcher.onDidCreate(() => {
-        void getFossilStatus();
-    });
-    fsWatcher.onDidDelete(() => {
-        void getFossilStatus();
-    });
-
-    const disposable = vscode.commands.registerCommand(
-        'extension.fossilSCM',
-        () => {
-            void getFossilStatus();
-        }
-    );
-
-    context.subscriptions.push(disposable);
+    fsWatcher.onDidChange(() => statusScheduler.schedule());
+    fsWatcher.onDidCreate(() => statusScheduler.schedule());
+    fsWatcher.onDidDelete(() => statusScheduler.schedule());
     context.subscriptions.push(fsWatcher);
 }
 
