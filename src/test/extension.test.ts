@@ -8,6 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execFileSync, execSync } from 'child_process';
 import * as fossilSCM from '../extension';
+import { runFossilCat } from '../fossilContentProvider';
 
 const testRepoPath = path.join(__dirname, '..', '..', 'src', 'test', 'test_repo');
 const file1Path = path.join(testRepoPath, 'File1.txt');
@@ -45,6 +46,11 @@ suite('Extension Tests', function () {
 
     setup(function () {
         fossilSCM.init(testRepoPath);
+    });
+
+    test('runFossilCat returns file content from repository', async function () {
+        const content = await runFossilCat('File1.txt', testRepoPath);
+        assert.ok(typeof content === 'string');
     });
 
     test('Retrieve status', async function () {

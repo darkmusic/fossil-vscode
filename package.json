@@ -24,6 +24,11 @@
             {
                 "command": "extension.fossilSCM",
                 "title": "Fossil SCM"
+            },
+            {
+                "command": "fossil.openChange",
+                "title": "Open Fossil Change",
+                "icon": "$(diff)"
             }
         ],
         "configuration": {
@@ -34,6 +39,11 @@
                     "type": "string",
                     "default": "fossil",
                     "description": "Path to fossil executable"
+                },
+                "fossilScm.openDiffOnClick": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Open the diff editor when clicking a file in the Changes view. When false, opens the working tree file; deleted files open the repository version instead."
                 }
             }
         }
