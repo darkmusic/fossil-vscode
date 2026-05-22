@@ -1,3 +1,5 @@
+[![CI](https://github.com/darkmusic/fossil-vscode/actions/workflows/ci.yml/badge.svg)](https://github.com/darkmusic/fossil-vscode/actions/workflows/ci.yml)
+
 # Fossil SCM for VS Code
 
 A [Visual Studio Code](https://code.visualstudio.com/) extension for [Fossil SCM](https://www.fossil-scm.org) checkouts. It is still under development and has not yet been released to the VS Code Marketplace.
@@ -98,8 +100,7 @@ Then either:
 
 ```bash
 npm install
-npm run package   # type-check and production bundle via esbuild
-npx @vscode/vsce package
+npm run vsix      # type-check, production bundle, and package to .vsix
 code --install-extension fossil-scm-*.vsix
 ```
 
@@ -132,7 +133,7 @@ Contributions are welcome.
 
 ```bash
 npm install
-npm run compile      # TypeScript → out/
+npm run compile      # Tests → out/, extension → dist/
 npm run watch        # Parallel type-check watch and esbuild watch
 npm run package      # Production bundle (dist/) for packaging
 npm test             # Integration tests (see below)
@@ -146,6 +147,16 @@ Integration tests require Fossil on your `PATH` and an opened copy of the test r
 cd src/test/test_repo && fossil open TestRepo.fossil
 npm test
 ```
+
+### CI and releases
+
+GitHub Actions run on every push and pull request to `main` (type-check, compile, Fossil integration tests). To build a VSIX without tagging, run the **VSIX Package** workflow from the Actions tab.
+
+To publish a GitHub Release with a VSIX attached:
+
+1. Bump `version` in `package.json` and update `CHANGELOG.md`.
+ 2. Commit on `main`, then tag and push: `git tag v0.0.2 && git push origin v0.0.2` (tag must be `v<package.json version>`, e.g. `v0.0.2`).
+ 3. The **Create Release** workflow uploads the VSIX to the new release.
 
 ## License
 
