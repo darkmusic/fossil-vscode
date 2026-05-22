@@ -93,9 +93,8 @@ export function createStatusRefreshScheduler(
             if (inFlight) {
                 requestFollowUp();
             } else {
-                void kickRefresh().catch((err) => {
-                    logRefreshError(err);
-                });
+                // Errors propagate to waiters via rejectWaiters; avoid duplicate logging.
+                void kickRefresh().catch(() => {});
             }
         });
     }

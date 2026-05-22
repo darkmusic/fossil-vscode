@@ -1,8 +1,8 @@
 'use strict';
 
 import * as vscode from 'vscode';
-import * as path from 'path';
 import { FossilCommandError, runFossil, relativePathFromResourceUri } from './fossilCli';
+import { toAbsolutePathInsideRepo } from './paths';
 
 export interface FossilScmCommandDeps {
     getRepoDir: () => string;
@@ -22,12 +22,24 @@ function isResourceState(
     );
 }
 
+function visitArgs(arg: unknown, visit: (item: unknown) => void): void {
+    if (Array.isArray(arg)) {
+        for (const item of arg) {
+            visitArgs(item, visit);
+        }
+        return;
+    }
+    visit(arg);
+}
+
 function resolveResourceStates(args: unknown[]): vscode.SourceControlResourceState[] {
     const states: vscode.SourceControlResourceState[] = [];
     for (const arg of args) {
-        if (isResourceState(arg)) {
-            states.push(arg);
-        }
+        visitArgs(arg, (item) => {
+            if (isResourceState(item)) {
+                states.push(item);
+            }
+        });
     }
     return states;
 }
@@ -38,16 +50,20 @@ function resolveRelativePaths(
 ): string[] {
     const states = resolveResourceStates(args);
     if (states.length > 0) {
-        return states.map((s) =>
+        const paths = states.map((s) =>
             relativePathFromResourceUri(s.resourceUri, repoDir)
         );
+        return [...new Set(paths)];
     }
+    const paths: string[] = [];
     for (const arg of args) {
-        if (arg instanceof vscode.Uri && arg.scheme === 'file') {
-            return [relativePathFromResourceUri(arg, repoDir)];
-        }
+        visitArgs(arg, (item) => {
+            if (item instanceof vscode.Uri && item.scheme === 'file') {
+                paths.push(relativePathFromResourceUri(item, repoDir));
+            }
+        });
     }
-    return [];
+    return [...new Set(paths)];
 }
 
 async function runFossilOnPaths(
@@ -55,13 +71,21 @@ async function runFossilOnPaths(
     relativePaths: string[],
     repoDir: string
 ): Promise<void> {
-    if (relativePaths.length === 0) {
-        void vscode.window.showWarningMessage('No files selected.');
+    const absolutePaths: string[] = [];
+    for (const relativePath of relativePaths) {
+        const absolute = toAbsolutePathInsideRepo(repoDir, relativePath);
+        if (absolute !== undefined) {
+            absolutePaths.push(absolute);
+        }
+    }
+    if (absolutePaths.length === 0) {
+        void vscode.window.showWarningMessage(
+            relativePaths.length === 0
+                ? 'No files selected.'
+                : 'Selected files are outside the Fossil checkout.'
+        );
         return;
     }
-    const absolutePaths = relativePaths.map((p) =>
-        path.join(repoDir, p)
-    );
     await runFossil([...fossilArgs, ...absolutePaths], repoDir);
 }
 

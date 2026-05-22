@@ -97,6 +97,31 @@ suite('statusRefresh', () => {
         scheduler.dispose();
     });
 
+    test('refreshNow rejects without console logging', async function () {
+        const errors: unknown[] = [];
+        const originalError = console.error;
+        console.error = (...args: unknown[]) => {
+            errors.push(args);
+        };
+        try {
+            const scheduler = createStatusRefreshScheduler(async () => {
+                throw new Error('status failed');
+            });
+            await assert.rejects(
+                () => scheduler.refreshNow(),
+                (err: Error) => err.message === 'status failed'
+            );
+            assert.equal(
+                errors.length,
+                0,
+                'refreshNow failures should not be console.error logged'
+            );
+            scheduler.dispose();
+        } finally {
+            console.error = originalError;
+        }
+    });
+
     test('scheduled refresh logs rejection without unhandled rejection', async function () {
         this.timeout(5000);
         const errors: unknown[] = [];
