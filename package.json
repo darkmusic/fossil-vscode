@@ -66,6 +66,24 @@
                 "icon": "$(sync)"
             },
             {
+                "command": "fossil.startUi",
+                "title": "Start Fossil UI",
+                "category": "Fossil",
+                "icon": "$(globe)"
+            },
+            {
+                "command": "fossil.stopUi",
+                "title": "Stop Fossil UI",
+                "category": "Fossil",
+                "icon": "$(debug-stop)"
+            },
+            {
+                "command": "fossil.openMergeEditor",
+                "title": "Open in Merge Editor",
+                "category": "Fossil",
+                "icon": "$(merge)"
+            },
+            {
                 "command": "fossil.openChange",
                 "title": "Open Fossil Change",
                 "icon": "$(diff)"
@@ -108,6 +126,16 @@
                     "command": "fossil.commit",
                     "when": "scmProvider == fossil",
                     "group": "navigation@3"
+                },
+                {
+                    "command": "fossil.startUi",
+                    "when": "scmProvider == fossil && !fossil.uiRunning",
+                    "group": "navigation@4"
+                },
+                {
+                    "command": "fossil.stopUi",
+                    "when": "scmProvider == fossil && fossil.uiRunning",
+                    "group": "navigation@4"
                 }
             ],
             "scm/resourceState/context": [
@@ -125,6 +153,11 @@
                     "command": "fossil.revert",
                     "when": "scmProvider == fossil && (scmResourceState == edited || scmResourceState == deleted || scmResourceState == added || scmResourceState == renamed || scmResourceState == conflict)",
                     "group": "1_sync@3"
+                },
+                {
+                    "command": "fossil.openMergeEditor",
+                    "when": "scmProvider == fossil && scmResourceState == conflict",
+                    "group": "1_sync@4"
                 },
                 {
                     "command": "fossil.viewTimeline",
@@ -165,6 +198,14 @@
                     "when": "fossil.hasCheckout"
                 },
                 {
+                    "command": "fossil.startUi",
+                    "when": "fossil.hasCheckout"
+                },
+                {
+                    "command": "fossil.stopUi",
+                    "when": "fossil.hasCheckout && fossil.uiRunning"
+                },
+                {
                     "command": "fossil.add",
                     "when": "false"
                 },
@@ -190,6 +231,10 @@
                 },
                 {
                     "command": "fossil.timeline.copyHash",
+                    "when": "false"
+                },
+                {
+                    "command": "fossil.openMergeEditor",
                     "when": "false"
                 }
             ]

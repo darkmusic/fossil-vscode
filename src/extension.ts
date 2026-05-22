@@ -8,6 +8,7 @@ import {
     notifyFossilContentChanged,
 } from './fossilContentProvider';
 import { registerOpenChangeCommand } from './openChange';
+import { openInMergeEditor } from './mergeConflict';
 import { fetchRenameMap } from './renameInfo';
 import {
     FossilQuickDiffProvider,
@@ -23,6 +24,7 @@ import {
 } from './fossilTimelineProvider';
 import { getFossilExePath, runFossil, FossilCommandError } from './fossilCli';
 import { registerFossilScmCommands } from './fossilScmCommands';
+import { registerFossilUi, disposeFossilUi } from './fossilUi';
 import { createStatusRefreshScheduler } from './statusRefresh';
 
 export { getRepoDir } from './repoContext';
@@ -30,6 +32,7 @@ export { getRepoDir } from './repoContext';
 let extensionPath = '';
 let fossilSCM: vscode.SourceControl;
 let workingTree: vscode.SourceControlResourceGroup;
+let mergeConflicts: vscode.SourceControlResourceGroup;
 let quickDiffProvider: FossilQuickDiffProvider;
 const statusByRelativePath = new Map<string, FileStatusEntry>();
 const emptyRenameMap = new Map<string, string>();
@@ -40,6 +43,13 @@ function setCheckoutContext(): void {
         'fossil.hasCheckout',
         Boolean(getRepoDir())
     );
+    if (!getRepoDir()) {
+        void vscode.commands.executeCommand(
+            'setContext',
+            'fossil.uiRunning',
+            false
+        );
+    }
 }
 
 function getFossilSCM(): vscode.SourceControl | undefined {
@@ -96,6 +106,11 @@ export function init(workspaceDir?: string) {
         );
         workingTree = fossilSCM.createResourceGroup('workingTree', 'Changes');
         workingTree.hideWhenEmpty = true;
+        mergeConflicts = fossilSCM.createResourceGroup(
+            'merge',
+            'Merge Conflicts'
+        );
+        mergeConflicts.hideWhenEmpty = true;
         setupScmInputBox();
         quickDiffProvider = new FossilQuickDiffProvider(
             getRepoDir(),
@@ -114,6 +129,7 @@ export function init(workspaceDir?: string) {
 
 enum Operation {
     Add = 'added',
+    Conflict = 'conflict',
     Delete = 'deleted',
     Modify = 'modified',
     Untracked = 'untracked',
@@ -149,6 +165,16 @@ function contextValueForType(type: string): string {
 
 export function getStateCount(): number {
     return fossilSCM?.count ?? 0;
+}
+
+export function getConflictCount(): number {
+    let count = 0;
+    for (const entry of statusByRelativePath.values()) {
+        if (entry.type === 'CONFLICT') {
+            count++;
+        }
+    }
+    return count;
 }
 
 function buildResourceState(
@@ -208,12 +234,18 @@ function getDecorations(
             };
         case 'CONFLICT':
             return {
-                tooltip: 'Conflict',
+                tooltip: 'Merge conflict',
                 dark: {
-                    iconPath: getIconPath(Operation.Modify, ThemeType.Dark),
+                    iconPath: getIconPath(
+                        Operation.Conflict,
+                        ThemeType.Dark
+                    ),
                 },
                 light: {
-                    iconPath: getIconPath(Operation.Modify, ThemeType.Light),
+                    iconPath: getIconPath(
+                        Operation.Conflict,
+                        ThemeType.Light
+                    ),
                 },
             };
         case 'ADDED':
@@ -259,7 +291,7 @@ function getDecorations(
 }
 
 export async function getFossilStatus(): Promise<void> {
-    if (!getRepoDir() || !workingTree) {
+    if (!getRepoDir() || !workingTree || !mergeConflicts) {
         return;
     }
 
@@ -282,7 +314,8 @@ export async function getFossilStatus(): Promise<void> {
 
     statusByRelativePath.clear();
 
-    const states: vscode.SourceControlResourceState[] = [];
+    const workingStates: vscode.SourceControlResourceState[] = [];
+    const conflictStates: vscode.SourceControlResourceState[] = [];
     let renameMap: Map<string, string> | undefined;
     const fossilExePath = getFossilExePath();
 
@@ -297,18 +330,22 @@ export async function getFossilStatus(): Promise<void> {
         }
         const normalizedPath = normalizeRelativePath(rawPath);
         const resourceUri = createResourceUri(rawPath);
-        states.push(
-            buildResourceState(
-                resourceUri,
-                type,
-                normalizedPath,
-                renameMap ?? emptyRenameMap
-            )
+        const state = buildResourceState(
+            resourceUri,
+            type,
+            normalizedPath,
+            renameMap ?? emptyRenameMap
         );
+        if (type === 'CONFLICT') {
+            conflictStates.push(state);
+        } else {
+            workingStates.push(state);
+        }
     }
 
-    workingTree.resourceStates = states;
-    fossilSCM.count = states.length;
+    workingTree.resourceStates = workingStates;
+    mergeConflicts.resourceStates = conflictStates;
+    fossilSCM.count = workingStates.length + conflictStates.length;
     notifyFossilContentChanged();
     notifyFossilTimelineChanged();
 }
@@ -317,6 +354,53 @@ export function activate(context: vscode.ExtensionContext) {
     extensionPath = context.extensionPath;
     registerFossilContentProvider(context);
     registerOpenChangeCommand(context);
+    context.subscriptions.push(
+        vscode.commands.registerCommand(
+            'fossil.openMergeEditor',
+            async (arg: unknown) => {
+                let uri: vscode.Uri | undefined;
+
+                // Extract URI from SourceControlResourceState (single or from array for multi-select)
+                if (Array.isArray(arg) && arg.length > 0) {
+                    const first = arg[0];
+                    if (first && typeof first === 'object' && 'resourceUri' in first) {
+                        uri = (first as vscode.SourceControlResourceState).resourceUri;
+                    } else if (first instanceof vscode.Uri) {
+                        uri = first as vscode.Uri;
+                    }
+                } else if (arg && typeof arg === 'object' && 'resourceUri' in arg) {
+                    // Single SourceControlResourceState
+                    uri = (arg as vscode.SourceControlResourceState).resourceUri;
+                } else if (arg instanceof vscode.Uri) {
+                    // Direct Uri
+                    uri = arg as vscode.Uri;
+                }
+
+                // Fallback to active editor
+                if (!uri) {
+                    uri = vscode.window.activeTextEditor?.document.uri;
+                }
+
+                if (!uri || uri.scheme !== 'file') {
+                    void vscode.window.showWarningMessage(
+                        'Select a conflicted file to open in the merge editor.'
+                    );
+                    return;
+                }
+
+                const opened = await openInMergeEditor(uri);
+                if (!opened) {
+                    await vscode.commands.executeCommand(
+                        'vscode.open',
+                        uri
+                    );
+                    void vscode.window.showInformationMessage(
+                        'Merge sidecar files not found; opened working file for inline conflict resolution.'
+                    );
+                }
+            }
+        )
+    );
     registerViewTimelineCommand(context);
     registerFossilTimelineProvider(context);
     registerTimelineCommands(context);
@@ -330,8 +414,10 @@ export function activate(context: vscode.ExtensionContext) {
     registerFossilScmCommands(context, {
         getRepoDir,
         getFossilSCM,
+        getConflictCount,
         refreshFossilStatusNow: () => statusScheduler.refreshNow(),
     });
+    registerFossilUi(context, getRepoDir);
 
     void statusScheduler.refreshNow();
     console.log('fossil-scm extension activated.');
@@ -350,4 +436,6 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(fsWatcher);
 }
 
-export function deactivate() {}
+export function deactivate() {
+    disposeFossilUi();
+}

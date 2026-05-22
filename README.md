@@ -8,7 +8,7 @@ Status icons are from the [Microsoft VS Code Git extension](https://github.com/m
 
 ### Source Control with diff viewer (integrated)
 
-![Screenshot](doc/screenshot1.png)
+![Screenshot](doc/diff.png)
 
 ### Timeline with diff viewer (split)
 
@@ -18,9 +18,13 @@ Status icons are from the [Microsoft VS Code Git extension](https://github.com/m
 
 ![Commit flow](doc/commit-flow.png)
 
+### Fossil UI integration
+
+![Fossil UI](doc/fossil-ui.png)
+
 ## Features
 
-When you open a Fossil checkout (a workspace folder containing `.fslckout` or `_FOSSIL_`), the extension activates automatically and shows pending changes in the **Source Control** view under **Fossil → Changes**, based on `fossil status --differ` (tracked changes plus untracked files not covered by ignore rules).
+When you open a Fossil checkout (a workspace folder containing `.fslckout` or `_FOSSIL_`), the extension activates automatically and shows pending changes in the **Source Control** view under **Fossil → Changes** and **Fossil → Merge Conflicts**, based on `fossil status --differ` (tracked changes plus untracked files not covered by ignore rules).
 
 Supported change types:
 
@@ -39,13 +43,16 @@ The list refreshes when files in the workspace change (debounced to avoid excess
 **SCM actions:**
 
 - **Refresh** — toolbar refresh button or **Fossil: Refresh** / **Fossil SCM** (Command Palette) refreshes the Changes list immediately.
-- **Sync** — toolbar sync button or **Fossil: Sync** runs `fossil sync` with the default remote (the URL from the most recent clone, pull, push, remote, or sync). Refreshes the Changes list when sync finishes.
+- **Sync** — toolbar sync button or **Fossil: Sync** runs `fossil sync` with the default remote (the URL from the most recent clone, pull, push, remote, or sync). Refreshes the Changes list when sync finishes. If merge conflicts remain, a warning is shown instead of the success message.
+- **Start Fossil UI** / **Stop Fossil UI** — SCM toolbar buttons to run `fossil ui` in a background process (opens the local web UI in your browser) and stop the process started by the extension.
 - **Commit** — enter a message in the SCM input box, then click the checkmark or press Ctrl+Enter (Cmd+Enter on macOS) to run `fossil commit -m`.
 - **Add to checkout** (+) — right-click an unmanaged file to run `fossil add`.
 - **Reset add** (−) — right-click an added file to run `fossil add --reset`.
 - **Revert** — right-click a changed tracked file to run `fossil revert` (not shown for unmanaged `EXTRA` / `UNMANAGE` files).
 
-**Opening changes:** Click a file under **Fossil → Changes** to open a diff against the checkout baseline (via `fossil cat`). Modified and conflict files compare repository vs working tree; added files compare an empty baseline vs the new file; deleted files open the repository version; renames compare the old path (baseline) vs the new path; unmanaged files open the working file only.
+**Opening changes:** Click a file under **Fossil → Changes** to open a diff against the checkout baseline (via `fossil cat`). Modified files compare repository vs working tree; added files compare an empty baseline vs the new file; deleted files open the repository version; renames compare the old path (baseline) vs the new path; unmanaged files open the working file only.
+
+**Merge conflicts:** Files with unresolved Fossil merge markers appear under **Fossil → Merge Conflicts** with a conflict icon. Click a conflicted file to open the working copy in the editor so VS Code’s inline merge conflict actions (Accept Current / Incoming / Both) can be used. Right-click for **Open in Merge Editor** when Fossil has left `*-baseline`, `*-original`, and `*-merge` sidecar files (for example after `fossil merge -K`). Remove all conflict markers before committing.
 
 **Editor gutter diff:** While editing a changed tracked file, VS Code shows inline **Fossil** quick diff markers comparing your edits to the checkout baseline.
 
@@ -63,7 +70,7 @@ The list refreshes when files in the workspace change (debounced to avoid excess
 ## Usage
 
 1. Open the **checkout directory** as your VS Code workspace (the folder that contains `.fslckout` or `_FOSSIL_`), not only a parent directory.
-2. Open the **Source Control** view. Changed and untracked files appear under **Fossil → Changes** when `fossil status --differ` reports them.
+2. Open the **Source Control** view. Changed and untracked files appear under **Fossil → Changes**; merge conflicts appear under **Fossil → Merge Conflicts** when `fossil status --differ` reports them.
 
 ## Installation
 

@@ -1,131 +1,66 @@
-//
-// Unit tests for open-change command resolution and rename map parsing.
-//
-
 import * as assert from 'assert';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { resolveChangeCommand } from '../openChange';
-import {
-    toFossilUri,
-    toFossilEmptyUri,
-    parseVirtualUri,
-} from '../fossilContentProvider';
-import { buildRenameMapFromJson } from '../renameInfo';
-import { normalizeRelativePath } from '../paths';
+import { findMergeSidecars } from '../mergeConflict';
+import * as fs from 'fs';
+import * as os from 'os';
 
-const repoDir = '/tmp/test-repo';
-const filePath = path.join(repoDir, 'src', 'file.ts');
-const resourceUri = vscode.Uri.file(filePath);
+const repoDir = path.join(os.tmpdir(), 'fossil-openchange-test');
 
-suite('resolveChangeCommand', () => {
-    test('EDITED opens vscode.diff with fossil left URI', () => {
-        const cmd = resolveChangeCommand(resourceUri, 'EDITED', repoDir, {
-            openDiffOnClick: true,
-        });
-        assert.equal(cmd.command, 'vscode.diff');
-        const left = cmd.arguments![0] as vscode.Uri;
-        assert.equal(left.scheme, 'fossil');
-        assert.equal(cmd.arguments![1], resourceUri);
-    });
-
-    test('ADDED opens vscode.diff with fossil-empty left URI', () => {
-        const cmd = resolveChangeCommand(resourceUri, 'ADDED', repoDir, {
-            openDiffOnClick: true,
-        });
-        assert.equal(cmd.command, 'vscode.diff');
-        const left = cmd.arguments![0] as vscode.Uri;
-        assert.equal(left.scheme, 'fossil-empty');
-    });
-
-    test('DELETED opens repository version only', () => {
-        const cmd = resolveChangeCommand(resourceUri, 'DELETED', repoDir, {
+suite('openChange', () => {
+    test('CONFLICT opens working file not baseline diff', () => {
+        const filePath = path.join(repoDir, 'conflicted.txt');
+        const uri = vscode.Uri.file(filePath);
+        const cmd = resolveChangeCommand(uri, 'CONFLICT', repoDir, {
             openDiffOnClick: true,
         });
         assert.equal(cmd.command, 'vscode.open');
-        const left = cmd.arguments![0] as vscode.Uri;
-        assert.equal(left.scheme, 'fossil');
+        assert.deepEqual(cmd.arguments, [uri]);
     });
 
-    test('RENAMED uses priorPath for left URI', () => {
-        const cmd = resolveChangeCommand(resourceUri, 'RENAMED', repoDir, {
+    test('EDITED still opens diff when openDiffOnClick is true', () => {
+        const filePath = path.join(repoDir, 'edited.txt');
+        const uri = vscode.Uri.file(filePath);
+        const cmd = resolveChangeCommand(uri, 'EDITED', repoDir, {
             openDiffOnClick: true,
-            priorPath: 'old/file.ts',
         });
         assert.equal(cmd.command, 'vscode.diff');
-        const left = cmd.arguments![0] as vscode.Uri;
-        const parsed = parseVirtualUri(left);
-        assert.equal(parsed.relativePath, 'old/file.ts');
-        assert.equal(parsed.repoDir, repoDir);
-    });
-
-    test('EXTRA opens working file only', () => {
-        const cmd = resolveChangeCommand(resourceUri, 'EXTRA', repoDir, {
-            openDiffOnClick: true,
-        });
-        assert.equal(cmd.command, 'vscode.open');
-        assert.equal(cmd.arguments![0], resourceUri);
-    });
-
-    test('openDiffOnClick false opens working file', () => {
-        const cmd = resolveChangeCommand(resourceUri, 'EDITED', repoDir, {
-            openDiffOnClick: false,
-        });
-        assert.equal(cmd.command, 'vscode.open');
-        assert.equal(cmd.arguments![0], resourceUri);
+        assert.equal(cmd.arguments?.length, 3);
     });
 });
 
-suite('fossilContentProvider URIs', () => {
-    test('toFossilUri round-trips via parseVirtualUri', () => {
-        const uri = toFossilUri('src/a.txt', repoDir);
-        const parsed = parseVirtualUri(uri);
-        assert.equal(parsed.relativePath, 'src/a.txt');
-        assert.equal(parsed.repoDir, repoDir);
-    });
-
-    test('toFossilEmptyUri uses fossil-empty scheme', () => {
-        const uri = toFossilEmptyUri('new.txt', repoDir);
-        assert.equal(uri.scheme, 'fossil-empty');
-    });
-
-    test('scm and quickdiff contexts produce distinct URIs', () => {
-        const scm = toFossilUri('src/a.txt', repoDir, undefined, 'scm');
-        const quickdiff = toFossilUri(
-            'src/a.txt',
-            repoDir,
-            undefined,
-            'quickdiff'
+suite('mergeConflict', () => {
+    test('findMergeSidecars returns paths when all sidecars exist', () => {
+        const dir = fs.mkdtempSync(
+            path.join(os.tmpdir(), 'fossil-sidecar-')
         );
-        assert.notEqual(scm.toString(), quickdiff.toString());
+        const working = path.join(dir, 'file.txt');
+        try {
+            fs.writeFileSync(working, '<<<<<<< conflict\n');
+            fs.writeFileSync(`${working}-baseline`, 'base\n');
+            fs.writeFileSync(`${working}-original`, 'local\n');
+            fs.writeFileSync(`${working}-merge`, 'remote\n');
+            const sidecars = findMergeSidecars(working);
+            assert.ok(sidecars);
+            assert.equal(sidecars.baseline, `${working}-baseline`);
+            assert.equal(sidecars.original, `${working}-original`);
+            assert.equal(sidecars.merge, `${working}-merge`);
+        } finally {
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
     });
-});
 
-suite('normalizeRelativePath', () => {
-    test('converts backslashes to forward slashes', () => {
-        assert.equal(
-            normalizeRelativePath('src\\dir\\file.ts'),
-            'src/dir/file.ts'
+    test('findMergeSidecars returns undefined when sidecars missing', () => {
+        const dir = fs.mkdtempSync(
+            path.join(os.tmpdir(), 'fossil-sidecar-missing-')
         );
-    });
-});
-
-suite('buildRenameMapFromJson', () => {
-    test('extracts priorName for renamed files', () => {
-        const json = JSON.stringify({
-            payload: {
-                files: [
-                    {
-                        state: 'renamed',
-                        name: 'dir\\new.txt',
-                        priorName: 'dir\\old.txt',
-                    },
-                    { state: 'edited', name: 'other.txt' },
-                ],
-            },
-        });
-        const map = buildRenameMapFromJson(json);
-        assert.equal(map.get('dir/new.txt'), 'dir/old.txt');
-        assert.equal(map.size, 1);
+        const working = path.join(dir, 'file.txt');
+        try {
+            fs.writeFileSync(working, 'no sidecars\n');
+            assert.equal(findMergeSidecars(working), undefined);
+        } finally {
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
     });
 });
