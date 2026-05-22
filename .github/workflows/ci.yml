@@ -28,13 +28,13 @@ jobs:
 
       - run: npm run check-types
 
-      - run: npm run compile
+      - run: npm run compile && node esbuild.js --production
 
       - name: Install Fossil
         run: sudo apt-get update && sudo apt-get install -y fossil
 
       - name: Open test repository
-        run: cd src/test/test_repo && fossil open TestRepo.fossil
+        run: cd src/test/test_repo && fossil open TestRepo.fossil -f
 
       - name: Run tests
         run: xvfb-run -a npm test

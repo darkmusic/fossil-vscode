@@ -131,7 +131,7 @@ Contributions are welcome.
 
 ```bash
 npm install
-npm run compile      # TypeScript → out/
+npm run compile      # Tests → out/, extension → dist/
 npm run watch        # Parallel type-check watch and esbuild watch
 npm run package      # Production bundle (dist/) for packaging
 npm test             # Integration tests (see below)
@@ -153,8 +153,8 @@ GitHub Actions run on every push and pull request to `main` (type-check, compile
 To publish a GitHub Release with a VSIX attached:
 
 1. Bump `version` in `package.json` and update `CHANGELOG.md`.
-2. Commit on `main`, then tag and push: `git tag v0.0.2 && git push origin v0.0.2` (tag must match `package.json`, including the `v` prefix).
-3. The **Create Release** workflow uploads the VSIX to the new release.
+ 2. Commit on `main`, then tag and push: `git tag v0.0.2 && git push origin v0.0.2` (tag must be `v<package.json version>`, e.g. `v0.0.2`).
+ 3. The **Create Release** workflow uploads the VSIX to the new release.
 
 ## License
 

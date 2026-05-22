@@ -257,7 +257,7 @@
         }
     },
     "scripts": {
-        "compile": "tsc -p ./",
+        "compile": "tsc -p ./ && node esbuild.js",
         "check-types": "tsc --noEmit",
         "watch": "npm-run-all -p watch:*",
         "watch:esbuild": "node esbuild.js --watch",
