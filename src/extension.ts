@@ -5,6 +5,16 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import {
+    registerFossilContentProvider,
+    notifyFossilContentChanged,
+} from './fossilContentProvider';
+import { registerOpenChangeCommand } from './openChange';
+import { fetchRenameMap } from './renameInfo';
+import {
+    FossilQuickDiffProvider,
+    FileStatusEntry,
+} from './fossilQuickDiffProvider';
 
 const execFileAsync = promisify(execFile);
 
@@ -12,6 +22,8 @@ let extensionPath = '';
 let repoDir = '';
 let fossilSCM: vscode.SourceControl;
 let workingTree: vscode.SourceControlResourceGroup;
+let quickDiffProvider: FossilQuickDiffProvider;
+const statusByRelativePath = new Map<string, FileStatusEntry>();
 
 function createResourceUri(relativePath: string): vscode.Uri {
     const absolutePath = path.join(repoDir, relativePath);
@@ -48,6 +60,17 @@ export function init(workspaceDir?: string) {
         );
         workingTree = fossilSCM.createResourceGroup('workingTree', 'Changes');
         workingTree.hideWhenEmpty = true;
+        quickDiffProvider = new FossilQuickDiffProvider(
+            repoDir,
+            () => statusByRelativePath
+        );
+        fossilSCM.quickDiffProvider = quickDiffProvider;
+    } else {
+        quickDiffProvider = new FossilQuickDiffProvider(
+            repoDir,
+            () => statusByRelativePath
+        );
+        fossilSCM.quickDiffProvider = quickDiffProvider;
     }
 }
 
@@ -86,6 +109,112 @@ export function getStateCount(): number {
     return fossilSCM?.count ?? 0;
 }
 
+function buildResourceState(
+    resourceUri: vscode.Uri,
+    type: string,
+    relativePath: string,
+    renameMap: Map<string, string>
+): vscode.SourceControlResourceState {
+    const priorPath =
+        type === 'RENAMED' ? renameMap.get(relativePath) : undefined;
+
+    statusByRelativePath.set(relativePath, {
+        type,
+        priorPath,
+    });
+
+    return {
+        resourceUri,
+        command: {
+            command: 'fossil.openChange',
+            title: 'Open Change',
+            arguments: [resourceUri, type, repoDir, priorPath],
+        },
+        decorations: getDecorations(type),
+    };
+}
+
+function getDecorations(
+    type: string
+): vscode.SourceControlResourceState['decorations'] {
+    switch (type) {
+        case 'DELETED':
+            return {
+                strikeThrough: true,
+                tooltip: 'Deleted',
+                faded: true,
+                dark: {
+                    iconPath: getIconPath(Operation.Delete, ThemeType.Dark),
+                },
+                light: {
+                    iconPath: getIconPath(
+                        Operation.Delete,
+                        ThemeType.Light
+                    ),
+                },
+            };
+        case 'EDITED':
+            return {
+                tooltip: 'Modified',
+                dark: {
+                    iconPath: getIconPath(Operation.Modify, ThemeType.Dark),
+                },
+                light: {
+                    iconPath: getIconPath(Operation.Modify, ThemeType.Light),
+                },
+            };
+        case 'CONFLICT':
+            return {
+                tooltip: 'Conflict',
+                dark: {
+                    iconPath: getIconPath(Operation.Modify, ThemeType.Dark),
+                },
+                light: {
+                    iconPath: getIconPath(Operation.Modify, ThemeType.Light),
+                },
+            };
+        case 'ADDED':
+            return {
+                tooltip: 'Added',
+                dark: {
+                    iconPath: getIconPath(Operation.Add, ThemeType.Dark),
+                },
+                light: {
+                    iconPath: getIconPath(Operation.Add, ThemeType.Light),
+                },
+            };
+        case 'UNMANAGE':
+        case 'EXTRA':
+            return {
+                tooltip: 'Unmanaged',
+                dark: {
+                    iconPath: getIconPath(
+                        Operation.Untracked,
+                        ThemeType.Dark
+                    ),
+                },
+                light: {
+                    iconPath: getIconPath(
+                        Operation.Untracked,
+                        ThemeType.Light
+                    ),
+                },
+            };
+        case 'RENAMED':
+            return {
+                tooltip: 'Renamed',
+                dark: {
+                    iconPath: getIconPath(Operation.Modify, ThemeType.Dark),
+                },
+                light: {
+                    iconPath: getIconPath(Operation.Modify, ThemeType.Light),
+                },
+            };
+        default:
+            return { tooltip: type };
+    }
+}
+
 export async function getFossilStatus(): Promise<void> {
     if (!repoDir) {
         return;
@@ -109,6 +238,9 @@ export async function getFossilStatus(): Promise<void> {
         return;
     }
 
+    statusByRelativePath.clear();
+    const renameMap = await fetchRenameMap(fossilExePath, repoDir);
+
     const states: vscode.SourceControlResourceState[] = [];
 
     for (const line of stdout.split('\n')) {
@@ -118,119 +250,20 @@ export async function getFossilStatus(): Promise<void> {
         }
         const { type, relativePath } = parsed;
         const resourceUri = createResourceUri(relativePath);
-
-        switch (type) {
-            case 'DELETED':
-                states.push({
-                    resourceUri,
-                    decorations: {
-                        strikeThrough: true,
-                        tooltip: 'Deleted',
-                        faded: true,
-                        dark: {
-                            iconPath: getIconPath(
-                                Operation.Delete,
-                                ThemeType.Dark
-                            ),
-                        },
-                        light: {
-                            iconPath: getIconPath(
-                                Operation.Delete,
-                                ThemeType.Light
-                            ),
-                        },
-                    },
-                });
-                break;
-            case 'EDITED':
-            case 'CONFLICT':
-                states.push({
-                    resourceUri,
-                    decorations: {
-                        tooltip:
-                            type === 'CONFLICT' ? 'Conflict' : 'Modified',
-                        dark: {
-                            iconPath: getIconPath(
-                                Operation.Modify,
-                                ThemeType.Dark
-                            ),
-                        },
-                        light: {
-                            iconPath: getIconPath(
-                                Operation.Modify,
-                                ThemeType.Light
-                            ),
-                        },
-                    },
-                });
-                break;
-            case 'ADDED':
-                states.push({
-                    resourceUri,
-                    decorations: {
-                        tooltip: 'Added',
-                        dark: {
-                            iconPath: getIconPath(Operation.Add, ThemeType.Dark),
-                        },
-                        light: {
-                            iconPath: getIconPath(
-                                Operation.Add,
-                                ThemeType.Light
-                            ),
-                        },
-                    },
-                });
-                break;
-            case 'UNMANAGE':
-            case 'EXTRA':
-                states.push({
-                    resourceUri,
-                    decorations: {
-                        tooltip: 'Unmanaged',
-                        dark: {
-                            iconPath: getIconPath(
-                                Operation.Untracked,
-                                ThemeType.Dark
-                            ),
-                        },
-                        light: {
-                            iconPath: getIconPath(
-                                Operation.Untracked,
-                                ThemeType.Light
-                            ),
-                        },
-                    },
-                });
-                break;
-            case 'RENAMED':
-                states.push({
-                    resourceUri,
-                    decorations: {
-                        tooltip: 'Renamed',
-                        dark: {
-                            iconPath: getIconPath(
-                                Operation.Modify,
-                                ThemeType.Dark
-                            ),
-                        },
-                        light: {
-                            iconPath: getIconPath(
-                                Operation.Modify,
-                                ThemeType.Light
-                            ),
-                        },
-                    },
-                });
-                break;
-        }
+        states.push(
+            buildResourceState(resourceUri, type, relativePath, renameMap)
+        );
     }
 
     workingTree.resourceStates = states;
     fossilSCM.count = states.length;
+    notifyFossilContentChanged();
 }
 
 export function activate(context: vscode.ExtensionContext) {
     extensionPath = context.extensionPath;
+    registerFossilContentProvider(context);
+    registerOpenChangeCommand(context);
     init();
     void getFossilStatus();
     console.log('fossil-scm extension activated.');

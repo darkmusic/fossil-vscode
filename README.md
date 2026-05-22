@@ -22,6 +22,10 @@ Supported change types:
 
 The list refreshes when files in the workspace change. In a multi-root workspace, the extension uses the folder that contains the Fossil checkout markers.
 
+**Opening changes:** Click a file under **Fossil → Changes** to open a diff against the checkout baseline (via `fossil cat`). Modified and conflict files compare repository vs working tree; added files compare an empty baseline vs the new file; deleted files open the repository version; renames compare the old path (baseline) vs the new path; unmanaged files open the working file only.
+
+**Editor gutter diff:** While editing a changed tracked file, VS Code shows inline **Fossil** quick diff markers comparing your edits to the checkout baseline.
+
 You can also run the command **Fossil SCM** from the Command Palette to refresh the status manually.
 
 ![Screenshot](doc/screenshot1.png)
@@ -70,6 +74,7 @@ After installing or updating, reload the window so activation and settings apply
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `fossilScm.fossilExePath` | `fossil` | Path to the Fossil executable. Set this if `fossil` is not on the `PATH` used by VS Code (for example `C:\\Tools\\fossil.exe` on Windows). |
+| `fossilScm.openDiffOnClick` | `true` | When `true`, clicking a file in **Changes** opens the diff editor. When `false`, opens the working tree file (deleted files open the repository version). |
 
 Example in `settings.json`:
 
