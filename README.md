@@ -7,12 +7,15 @@ Status icons are from the [Microsoft VS Code Git extension](https://github.com/m
 ## Screenshots
 
 ### Source Control with diff viewer (integrated)
+
 ![Screenshot](doc/screenshot1.png)
 
 ### Timeline with diff viewer (split)
+
 ![Timeline](doc/timeline.png)
 
 ### Source Control commit flow / untracked file visibility
+
 ![Commit flow](doc/commit-flow.png)
 
 ## Features
