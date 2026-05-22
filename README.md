@@ -155,8 +155,8 @@ GitHub Actions run on every push and pull request to `main` (type-check, compile
 To publish a GitHub Release with a VSIX attached:
 
 1. Bump `version` in `package.json` and update `CHANGELOG.md`.
- 2. Commit on `main`, then tag and push: `git tag v0.0.2 && git push origin v0.0.2` (tag must be `v<package.json version>`, e.g. `v0.0.2`).
- 3. The **Create Release** workflow uploads the VSIX to the new release.
+2. Commit on `main`, then tag and push: `git tag v0.0.2 && git push origin v0.0.2` (tag must be `v<package.json version>`, e.g. `v0.0.2`).
+3. The **Create Release** workflow uploads the VSIX to the new release.
 
 ## License
 
