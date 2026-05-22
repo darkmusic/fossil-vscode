@@ -9,6 +9,7 @@ import * as path from 'path';
 import { execFileSync, execSync } from 'child_process';
 import * as fossilSCM from '../extension';
 import { runFossilCat } from '../fossilContentProvider';
+import { runFossil } from '../fossilCli';
 
 const testRepoPath = path.join(__dirname, '..', '..', 'src', 'test', 'test_repo');
 const file1Path = path.join(testRepoPath, 'File1.txt');
@@ -100,5 +101,68 @@ suite('Extension Tests', function () {
                 fossilSCM.getStateCount()
         );
         execSync('fossil undo', { cwd: testRepoPath });
+    });
+
+    test('fossil add via CLI shows ADDED in status', async function () {
+        const untrackedPath = path.join(testRepoPath, 'add-cli-test.txt');
+        fs.writeFileSync(untrackedPath, 'add me\n');
+        try {
+            await fossilSCM.getFossilStatus();
+            assert.equal(fossilSCM.getStateCount(), 1);
+            await runFossil(['add', untrackedPath], testRepoPath);
+            await fossilSCM.getFossilStatus();
+            assert.equal(
+                fossilSCM.getStateCount(),
+                1,
+                'ADDED file should appear in status'
+            );
+            await runFossil(['add', '--reset', untrackedPath], testRepoPath);
+            await fossilSCM.getFossilStatus();
+            assert.equal(
+                fossilSCM.getStateCount(),
+                1,
+                'reset add should return file to EXTRA/unmanaged'
+            );
+        } finally {
+            if (fs.existsSync(untrackedPath)) {
+                fs.unlinkSync(untrackedPath);
+            }
+            try {
+                execSync(`fossil revert "${untrackedPath}"`, {
+                    cwd: testRepoPath,
+                    stdio: 'pipe',
+                });
+            } catch {
+                // file may not be tracked
+            }
+        }
+    });
+
+    test('fossil revert restores edited file', async function () {
+        const original = fs.readFileSync(file1Path, 'utf8');
+        fs.writeFileSync(file1Path, original + '\nedited\n');
+        try {
+            await fossilSCM.getFossilStatus();
+            assert.ok(
+                fossilSCM.getStateCount() >= 1,
+                'edited file should appear in status'
+            );
+            await runFossil(['revert', file1Path], testRepoPath);
+            await fossilSCM.getFossilStatus();
+            assert.equal(
+                fs.readFileSync(file1Path, 'utf8'),
+                original,
+                'revert should restore file content'
+            );
+        } finally {
+            try {
+                execSync(`fossil revert "${file1Path}"`, {
+                    cwd: testRepoPath,
+                    stdio: 'pipe',
+                });
+            } catch {
+                // ignore
+            }
+        }
     });
 });

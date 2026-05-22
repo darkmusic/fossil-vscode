@@ -4,9 +4,20 @@ A [Visual Studio Code](https://code.visualstudio.com/) extension for [Fossil SCM
 
 Status icons are from the [Microsoft VS Code Git extension](https://github.com/microsoft/vscode/tree/main/extensions/git).
 
+## Screenshots
+
+### Source Control with diff viewer (integrated)
+![Screenshot](doc/screenshot1.png)
+
+### Timeline with diff viewer (split)
+![Timeline](doc/timeline.png)
+
+### Source Control commit flow / untracked file visibility
+![Commit flow](doc/commit-flow.png)
+
 ## Features
 
-When you open a Fossil checkout (a workspace folder containing `.fslckout` or `_FOSSIL_`), the extension activates automatically and shows pending changes in the **Source Control** view under **Fossil → Changes**, based on `fossil status`.
+When you open a Fossil checkout (a workspace folder containing `.fslckout` or `_FOSSIL_`), the extension activates automatically and shows pending changes in the **Source Control** view under **Fossil → Changes**, based on `fossil status --differ` (tracked changes plus untracked files not covered by ignore rules).
 
 Supported change types:
 
@@ -20,25 +31,25 @@ Supported change types:
 | RENAMED       | Renamed         |
 | CONFLICT      | Conflict        |
 
-The list refreshes when files in the workspace change. In a multi-root workspace, the extension uses the folder that contains the Fossil checkout markers.
+The list refreshes when files in the workspace change (debounced to avoid excessive `fossil status` calls). In a multi-root workspace, the extension uses the folder that contains the Fossil checkout markers.
+
+**SCM actions:**
+
+- **Refresh** — toolbar refresh button or **Fossil: Refresh** / **Fossil SCM** (Command Palette) runs `fossil status` immediately.
+- **Commit** — enter a message in the SCM input box, then click the checkmark or press Ctrl+Enter (Cmd+Enter on macOS) to run `fossil commit -m`.
+- **Add to checkout** (+) — right-click an unmanaged file to run `fossil add`.
+- **Reset add** (−) — right-click an added file to run `fossil add --reset`.
+- **Revert** — right-click a changed tracked file to run `fossil revert` (not shown for untracked `EXTRA` files).
 
 **Opening changes:** Click a file under **Fossil → Changes** to open a diff against the checkout baseline (via `fossil cat`). Modified and conflict files compare repository vs working tree; added files compare an empty baseline vs the new file; deleted files open the repository version; renames compare the old path (baseline) vs the new path; unmanaged files open the working file only.
 
 **Editor gutter diff:** While editing a changed tracked file, VS Code shows inline **Fossil** quick diff markers comparing your edits to the checkout baseline.
-
-You can also run the command **Fossil SCM** from the Command Palette to refresh the status manually.
 
 **File history:**
 
 - **View Timeline (output):** Right-click a file under **Fossil → Changes**, or run **Fossil: View Timeline (Output)** from the Command Palette with a file open in the editor. Output appears in the **Fossil Timeline** panel (`fossil timeline -p` for that path).
 - **View Timeline (explorer):** Right-click a file in the Explorer and choose **Fossil: View Timeline** to refresh the **Fossil Timeline** output and open the **Timeline** view. VS Code’s built-in **Open Timeline** only opens the Timeline view (no Fossil output channel).
 - **Timeline view:** With a workspace file open, open the Explorer **Timeline** panel and select the **Fossil** source to see check-ins that changed that file. Click an entry to open a diff of the changes introduced in that check-in: parent revision vs that check-in (or an empty file vs the new version when the file was added in that check-in). Right-click an entry for **Open Diff** or **Copy Check-in ID**.
-
-### Source Control with diff viewer (integrated)
-![Screenshot](doc/screenshot1.png)
-
-### Timeline with diff viewer (split)
-![Timeline](doc/timeline.png)
 
 ## Requirements
 
@@ -48,7 +59,7 @@ You can also run the command **Fossil SCM** from the Command Palette to refresh 
 ## Usage
 
 1. Open the **checkout directory** as your VS Code workspace (the folder that contains `.fslckout` or `_FOSSIL_`), not only a parent directory.
-2. Open the **Source Control** view. Changed files appear under **Fossil → Changes** when `fossil status` reports them.
+2. Open the **Source Control** view. Changed and untracked files appear under **Fossil → Changes** when `fossil status --differ` reports them.
 
 ## Installation
 
