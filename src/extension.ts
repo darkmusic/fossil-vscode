@@ -402,8 +402,14 @@ export function activate(context: vscode.ExtensionContext) {
         )
     );
     registerViewTimelineCommand(context);
-    registerFossilTimelineProvider(context);
-    registerTimelineCommands(context);
+    try {
+        console.log('registering timeline commands');
+        registerFossilTimelineProvider(context);
+        registerTimelineCommands(context);
+        console.log('timeline commands registered');
+    } catch (err) {
+        console.error('Fossil timeline provider unavailable:', err);
+    }
     init();
 
     const statusScheduler = createStatusRefreshScheduler(
