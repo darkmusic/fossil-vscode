@@ -10,23 +10,23 @@ Status icons are from the [Microsoft VS Code Git extension](https://github.com/m
 
 ### Source Control with diff viewer (integrated)
 
-![Screenshot](doc/diff.png)
+![Screenshot](https://raw.githubusercontent.com/darkmusic/fossil-vscode/refs/heads/main/doc/diff.png)
 
 ### Timeline with diff viewer (split)
 
-![Timeline](doc/timeline.png)
+![Timeline](https://raw.githubusercontent.com/darkmusic/fossil-vscode/refs/heads/main/doc/timeline.png)
 
 ### Source Control commit flow / untracked file visibility
 
-![Commit flow](doc/commit-flow.png)
+![Commit flow](https://raw.githubusercontent.com/darkmusic/fossil-vscode/refs/heads/main/doc/commit-flow.png)
 
 ### Fossil UI integration
 
-![Fossil UI](doc/fossil-ui.png)
+![Fossil UI](https://raw.githubusercontent.com/darkmusic/fossil-vscode/refs/heads/main/doc/fossil-ui.png)
 
 ### Multiple SCM per repo support
 
-![Multi-SCM](doc/multiple_scms.png)
+![Multi-SCM](https://raw.githubusercontent.com/darkmusic/fossil-vscode/refs/heads/main/doc/multiple_scms.png)
 
 ## Features
 
