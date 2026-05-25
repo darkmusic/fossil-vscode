@@ -5,17 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)  
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [1.0.1] - 2026-05-25
+## [1.0.2] - 2026-05-25
 
-First release published to the [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=darkmusic.fossil-scm). Same extension as [1.0.0](#100---2026-05-25); install from the Marketplace or [GitHub Releases](https://github.com/darkmusic/fossil-vscode/releases).
+First release successfully published to the [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=darkmusic.fossil-scm). Same extension as [1.0.1](#101---2026-05-25); use this version for Marketplace installs.
 
 ### Fixed
 
-- **`publish:marketplace` npm script** (`vsce publish`) so the **Create Release** workflow can publish the tagged VSIX to the Marketplace. The `v1.0.0` release failed because this script was missing.
+- **Marketplace publish** passes `--allow-proposed-apis timeline` in `publish:marketplace` so `vsce publish` accepts the extension’s Timeline integration (`enabledApiProposals: ["timeline"]`). The immutable `v1.0.1` tag’s release workflow failed with: *Extensions using unallowed proposed API (enabledApiProposals: [timeline]) can't be published to the Marketplace.*
+
+## [1.0.1] - 2026-05-25
+
+GitHub Release with VSIX only; Marketplace publish did not complete. Same extension as [1.0.0](#100---2026-05-25). Install from [GitHub Releases](https://github.com/darkmusic/fossil-vscode/releases) for this version, or use **1.0.2** or later from the Marketplace.
+
+### Fixed
+
+- **`publish:marketplace` npm script** (`vsce publish`) so the **Create Release** workflow can publish the tagged VSIX to the Marketplace. The immutable `v1.0.0` tag’s release failed because this script was missing.
 
 ## [1.0.0] - 2026-05-25
 
-Pre–Marketplace release (GitHub Release with VSIX only). Marketplace publish was attempted from CI but did not run successfully; use **1.0.1** or later for Marketplace installs.
+Pre–Marketplace release (GitHub Release with VSIX only). Marketplace publish was attempted from CI but did not run successfully; use **1.0.2** or later for Marketplace installs.
 
 ### Added
 
@@ -86,6 +94,7 @@ First pre–Marketplace release. Summarizes development from the initial Fossil 
 - Transitive npm dependency security advisories (Dependabot updates through 2024).
 - Test harness and CI setup restored after dependency and tooling upgrades.
 
+[1.0.2]: https://github.com/darkmusic/fossil-vscode/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/darkmusic/fossil-vscode/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/darkmusic/fossil-vscode/compare/v0.0.1...v1.0.0
 [0.0.1]: https://github.com/darkmusic/fossil-vscode/releases/tag/v0.0.1
