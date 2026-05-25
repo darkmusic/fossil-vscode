@@ -294,7 +294,8 @@
         "package": "npm run check-types && node esbuild.js --production",
         "vsix": "vsce package",
         "pretest": "npm run compile",
-        "test": "vscode-test"
+        "test": "vscode-test",
+        "publish:marketplace": "vsce publish --packagePath ./*.vsix --skip-duplicate"
     },
     "devDependencies": {
         "@types/mocha": "^10.0.10",
