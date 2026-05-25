@@ -1,8 +1,8 @@
 # Fossil SCM for VSCode and derivatives (Cursor, etc.)
 
 [![CI](https://github.com/darkmusic/fossil-vscode/actions/workflows/ci.yml/badge.svg)](https://github.com/darkmusic/fossil-vscode/actions/workflows/ci.yml)
-[![Visual Studio Marketplace](https://img.shields.io/visual-studio-marketplace/v/darkmusic.fossil-scm?label=Marketplace)](https://marketplace.visualstudio.com/items?itemName=darkmusic.fossil-scm)
-[![Visual Studio Marketplace Installs](https://img.shields.io/visual-studio-marketplace/i/darkmusic.fossil-scm)](https://marketplace.visualstudio.com/items?itemName=darkmusic.fossil-scm)
+[![Visual Studio Marketplace](https://shields.io/badge/Visual%20Studio%20Marketplace-darkmusic.fossil--scm-blue?style=flat-square&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=darkmusic.fossil-scm)
+[![Visual Studio Marketplace Installs](https://shields.io/badge/installs-marketplace-blue?style=flat-square)](https://marketplace.visualstudio.com/items?itemName=darkmusic.fossil-scm)
 
 A [Visual Studio Code](https://code.visualstudio.com/) extension for [Fossil SCM](https://www.fossil-scm.org) checkouts. Install from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=darkmusic.fossil-scm) (also works in [Cursor](https://cursor.com/) and other VS Code–compatible editors).
 

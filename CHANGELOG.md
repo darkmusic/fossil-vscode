@@ -5,9 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)  
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-05-25
+
+First release published to the [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=darkmusic.fossil-scm). Same extension as [1.0.0](#100---2026-05-25); install from the Marketplace or [GitHub Releases](https://github.com/darkmusic/fossil-vscode/releases).
+
+### Fixed
+
+- **`publish:marketplace` npm script** (`vsce publish`) so the **Create Release** workflow can publish the tagged VSIX to the Marketplace. The `v1.0.0` release failed because this script was missing.
+
 ## [1.0.0] - 2026-05-25
 
-First release published to the [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/). Usable in VS Code, [Cursor](https://cursor.com/), and other VS Code–compatible editors.
+Pre–Marketplace release (GitHub Release with VSIX only). Marketplace publish was attempted from CI but did not run successfully; use **1.0.1** or later for Marketplace installs.
 
 ### Added
 
@@ -18,8 +26,8 @@ First release published to the [Visual Studio Code Marketplace](https://marketpl
 - **Fossil UI starting:** Spinner on the Start button while `fossil ui` boots; Stop appears when the server is ready.
 - **Fossil Log** output channel (`View → Output → Fossil Log`) with timestamped operational logging for Fossil CLI commands, SCM actions, timeline operations, Fossil UI, and errors.
 - **Nested Fossil checkout discovery** under a Git (or other) workspace root, with **active editor–aware binding** when multiple checkouts exist (the checkout that contains the open file is preferred).
-- **Extension icon** for the Marketplace listing (`resources/icons/icon.png`).
-- **Create Release** workflow step to publish the tagged VSIX to the Visual Studio Marketplace (`npm run publish:marketplace` with `VSCE_PAT`).
+- **Extension icon** (`resources/icons/icon.png`).
+- **Create Release** workflow step intended to publish the tagged VSIX to the Visual Studio Marketplace (`VSCE_PAT`); completed in **1.0.1** once `publish:marketplace` was added.
 
 ### Changed
 
@@ -78,5 +86,6 @@ First pre–Marketplace release. Summarizes development from the initial Fossil 
 - Transitive npm dependency security advisories (Dependabot updates through 2024).
 - Test harness and CI setup restored after dependency and tooling upgrades.
 
+[1.0.1]: https://github.com/darkmusic/fossil-vscode/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/darkmusic/fossil-vscode/compare/v0.0.1...v1.0.0
 [0.0.1]: https://github.com/darkmusic/fossil-vscode/releases/tag/v0.0.1
