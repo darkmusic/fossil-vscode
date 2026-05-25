@@ -8,6 +8,7 @@ import {
     getFossilExePath,
     timelinePathFromUri,
 } from './timelineData';
+import { logCommand, logError, logInfo } from './fossilLog';
 
 const execFileAsync = promisify(execFile);
 
@@ -43,6 +44,7 @@ export async function showTimelineOutputForUri(
 ): Promise<void> {
     const repoDir = getRepoDir();
     if (!repoDir) {
+        logError('View timeline: no checkout open.');
         void vscode.window.showErrorMessage('No Fossil checkout is open.');
         return;
     }
@@ -53,10 +55,12 @@ export async function showTimelineOutputForUri(
     } catch (err: unknown) {
         const message =
             err instanceof Error ? err.message : 'Invalid file for timeline';
+        logError(`View timeline: ${message}`);
         void vscode.window.showErrorMessage(message);
         return;
     }
 
+    logInfo(`View timeline (output): ${relativePath}`);
     await runTextTimeline(relativePath);
 }
 
@@ -70,16 +74,15 @@ async function runTextTimeline(relativePath: string): Promise<void> {
     const channel = getTimelineOutputChannel();
     const fossilExe = getFossilExePath();
     const header = `Timeline: ${relativePath}`;
+    const args = ['timeline', '-p', relativePath];
+    logCommand(fossilExe, args, repoDir);
 
     try {
-        const result = await execFileAsync(
-            fossilExe,
-            ['timeline', '-p', relativePath],
-            {
-                cwd: repoDir,
-                maxBuffer: 10 * 1024 * 1024,
-            }
-        );
+        const result = await execFileAsync(fossilExe, args, {
+            cwd: repoDir,
+            maxBuffer: 10 * 1024 * 1024,
+        });
+        logInfo(`Timeline output ready for ${relativePath}.`);
         let body = result.stdout;
         if (result.stderr?.trim()) {
             body += (body.length > 0 ? '\n' : '') + result.stderr;
@@ -92,6 +95,7 @@ async function runTextTimeline(relativePath: string): Promise<void> {
             execErr.stderr?.trim() ||
             execErr.message ||
             'fossil timeline failed';
+        logError(`Timeline failed for ${relativePath}: ${detail}`);
         channel.replace(`${header}\n\n${detail}`);
         channel.show(true);
         void vscode.window
@@ -113,7 +117,8 @@ async function runViewTimeline(
 ): Promise<void> {
     const resourceUri = resolveViewTimelineUri(arg);
     if (!resourceUri) {
-        void vscode.window.showErrorMessage(
+        logInfo('View timeline: no file selected.');
+        void vscode.window.showWarningMessage(
             'Select or open a file to view its timeline.'
         );
         return;

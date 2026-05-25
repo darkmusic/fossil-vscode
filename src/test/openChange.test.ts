@@ -49,6 +49,15 @@ suite('resolveChangeCommand', () => {
         assert.equal(left.scheme, 'fossil');
     });
 
+    test('MISSING opens repository version only', () => {
+        const cmd = resolveChangeCommand(resourceUri, 'MISSING', repoDir, {
+            openDiffOnClick: true,
+        });
+        assert.equal(cmd.command, 'vscode.open');
+        const left = cmd.arguments![0] as vscode.Uri;
+        assert.equal(left.scheme, 'fossil');
+    });
+
     test('RENAMED uses priorPath for left URI', () => {
         const cmd = resolveChangeCommand(resourceUri, 'RENAMED', repoDir, {
             openDiffOnClick: true,

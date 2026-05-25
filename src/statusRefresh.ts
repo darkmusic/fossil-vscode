@@ -1,5 +1,7 @@
 'use strict';
 
+import { logError } from './fossilLog';
+
 export interface StatusRefreshScheduler {
     schedule(): void;
     refreshNow(): Promise<void>;
@@ -15,7 +17,7 @@ export type StatusRefreshErrorHandler = (err: unknown) => void;
 
 function defaultLogRefreshError(err: unknown): void {
     const message = err instanceof Error ? err.message : String(err);
-    console.error('Fossil status refresh failed:', message);
+    logError(`Status refresh failed: ${message}`);
 }
 
 /**

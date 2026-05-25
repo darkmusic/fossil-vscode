@@ -13,6 +13,7 @@ import {
     timelinePathFromUri,
 } from './timelineData';
 import { toFossilUri, toFossilEmptyUri } from './fossilContentProvider';
+import { logError, logInfo } from './fossilLog';
 
 const timelineChangeEmitter =
     new vscode.EventEmitter<vscode.TimelineChangeEvent | undefined>();
@@ -58,6 +59,9 @@ class FossilTimelineProvider implements vscode.TimelineProvider {
             !Number.isNaN(skip) && skip > 0 ? skip : 0;
 
         try {
+            logInfo(
+                `Timeline fetch: ${relativePath} (limit ${limit}, skip ${parsedSkip})`
+            );
             const result = await fetchCheckinTimelineForPath(
                 getFossilExePath(),
                 repoDir,
@@ -72,6 +76,7 @@ class FossilTimelineProvider implements vscode.TimelineProvider {
             }
 
             const { entries, hasMore } = result;
+            logInfo(`Timeline: ${entries.length} item(s) for ${relativePath}.`);
             const items = mapCheckinsToTimelineItems(
                 entries,
                 uri,
@@ -89,9 +94,8 @@ class FossilTimelineProvider implements vscode.TimelineProvider {
             };
         } catch (err: unknown) {
             const execErr = err as { stderr?: string; message?: string };
-            console.log(
-                'Fossil timeline provider:',
-                execErr.stderr ?? execErr.message
+            logError(
+                `Timeline provider: ${execErr.stderr ?? execErr.message ?? 'unknown error'}`
             );
             return { items: [] };
         }
@@ -168,11 +172,13 @@ async function runTimelineOpenDiff(
 ): Promise<void> {
     const repoDir = getRepoDir();
     if (!repoDir) {
+        logError('Timeline open diff: no checkout open.');
         void vscode.window.showErrorMessage('No Fossil checkout is open.');
         return;
     }
 
     const { fileUri, checkinUuid, parentUuid, fileWasAdded } = args;
+    logInfo(`Timeline open diff: ${fileUri.fsPath} @ ${checkinUuid}`);
     let relativePath: string;
     try {
         relativePath = timelinePathFromUri(fileUri, repoDir);
@@ -240,6 +246,7 @@ export function registerTimelineCommands(
                 if (!checkinUuid) {
                     return;
                 }
+                logInfo(`Copied check-in ID: ${checkinUuid}`);
                 await vscode.env.clipboard.writeText(checkinUuid);
             }
         )

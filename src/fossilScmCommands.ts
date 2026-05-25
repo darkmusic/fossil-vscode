@@ -2,12 +2,15 @@
 
 import * as vscode from 'vscode';
 import { FossilCommandError, runFossil, relativePathFromResourceUri } from './fossilCli';
+import { logError, logInfo } from './fossilLog';
 import { toAbsolutePathInsideRepo } from './paths';
+import { withCommitInProgress } from './scmOperationState';
 
 export interface FossilScmCommandDeps {
     getRepoDir: () => string;
     getFossilSCM: () => vscode.SourceControl | undefined;
     getConflictCount: () => number;
+    getMissingCount: () => number;
     refreshFossilStatusNow: () => Promise<void>;
 }
 
@@ -80,11 +83,12 @@ async function runFossilOnPaths(
         }
     }
     if (absolutePaths.length === 0) {
-        void vscode.window.showWarningMessage(
+        const message =
             relativePaths.length === 0
                 ? 'No files selected.'
-                : 'Selected files are outside the Fossil checkout.'
-        );
+                : 'Selected files are outside the Fossil checkout.';
+        logInfo(message);
+        void vscode.window.showWarningMessage(message);
         return;
     }
     await runFossil([...fossilArgs, ...absolutePaths], repoDir);
@@ -97,6 +101,7 @@ function showFossilError(err: unknown): void {
             : err instanceof Error
               ? err.message
               : String(err);
+    logError(message);
     void vscode.window.showErrorMessage(message);
 }
 
@@ -104,12 +109,18 @@ export function registerFossilScmCommands(
     context: vscode.ExtensionContext,
     deps: FossilScmCommandDeps
 ): void {
-    const { getRepoDir, getFossilSCM, getConflictCount, refreshFossilStatusNow } =
-        deps;
+    const {
+        getRepoDir,
+        getFossilSCM,
+        getConflictCount,
+        getMissingCount,
+        refreshFossilStatusNow,
+    } = deps;
 
     function requireRepo(): string | undefined {
         const repoDir = getRepoDir();
         if (!repoDir) {
+            logError('No Fossil checkout found in the workspace.');
             void vscode.window.showErrorMessage(
                 'No Fossil checkout found in the workspace.'
             );
@@ -120,11 +131,13 @@ export function registerFossilScmCommands(
 
     context.subscriptions.push(
         vscode.commands.registerCommand('fossil.refresh', () => {
+            logInfo('Refresh requested.');
             void refreshFossilStatusNow();
         }),
         vscode.commands.registerCommand(
             'extension.fossilSCM',
             () => {
+                logInfo('Refresh requested.');
                 void refreshFossilStatusNow();
             }
         ),
@@ -136,9 +149,11 @@ export function registerFossilScmCommands(
                     return;
                 }
                 const paths = resolveRelativePaths(args, repoDir);
+                logInfo(`Add to checkout: ${paths.join(', ') || '(none)'}`);
                 try {
                     await runFossilOnPaths(['add'], paths, repoDir);
                     await refreshFossilStatusNow();
+                    logInfo('Add to checkout completed.');
                 } catch (err) {
                     showFossilError(err);
                 }
@@ -152,9 +167,29 @@ export function registerFossilScmCommands(
                     return;
                 }
                 const paths = resolveRelativePaths(args, repoDir);
+                logInfo(`Reset add: ${paths.join(', ') || '(none)'}`);
                 try {
                     await runFossilOnPaths(['add', '--reset'], paths, repoDir);
                     await refreshFossilStatusNow();
+                    logInfo('Reset add completed.');
+                } catch (err) {
+                    showFossilError(err);
+                }
+            }
+        ),
+        vscode.commands.registerCommand(
+            'fossil.rm',
+            async (...args: unknown[]) => {
+                const repoDir = requireRepo();
+                if (!repoDir) {
+                    return;
+                }
+                const paths = resolveRelativePaths(args, repoDir);
+                logInfo(`Mark as deleted: ${paths.join(', ') || '(none)'}`);
+                try {
+                    await runFossilOnPaths(['rm'], paths, repoDir);
+                    await refreshFossilStatusNow();
+                    logInfo('Mark as deleted completed.');
                 } catch (err) {
                     showFossilError(err);
                 }
@@ -168,9 +203,11 @@ export function registerFossilScmCommands(
                     return;
                 }
                 const paths = resolveRelativePaths(args, repoDir);
+                logInfo(`Revert: ${paths.join(', ') || '(none)'}`);
                 try {
                     await runFossilOnPaths(['revert'], paths, repoDir);
                     await refreshFossilStatusNow();
+                    logInfo('Revert completed.');
                 } catch (err) {
                     showFossilError(err);
                 }
@@ -184,17 +221,30 @@ export function registerFossilScmCommands(
             const scm = getFossilSCM();
             const message = scm?.inputBox.value.trim() ?? '';
             if (!message) {
+                logInfo('Commit skipped: empty message.');
                 void vscode.window.showWarningMessage(
                     'Enter a commit message before committing.'
                 );
                 return;
             }
+            const missingCount = getMissingCount();
+            if (missingCount > 0) {
+                const blockedMessage =
+                    missingCount === 1
+                        ? '1 file was deleted locally and is missing from the checkout. Use Mark as Deleted or Revert on the file under Missing in Source Control before committing.'
+                        : `${missingCount} files were deleted locally and are missing from the checkout. Use Mark as Deleted or Revert on them under Missing in Source Control before committing.`;
+                logInfo(`Commit blocked: ${missingCount} missing file(s).`);
+                void vscode.window.showWarningMessage(blockedMessage);
+                return;
+            }
             try {
-                await runFossil(['commit', '-m', message], repoDir);
-                if (scm) {
-                    scm.inputBox.value = '';
-                }
-                await refreshFossilStatusNow();
+                await withCommitInProgress(scm, async () => {
+                    await runFossil(['commit', '-m', message], repoDir);
+                    if (scm) {
+                        scm.inputBox.value = '';
+                    }
+                    await refreshFossilStatusNow();
+                });
             } catch (err) {
                 showFossilError(err);
             }
@@ -204,6 +254,7 @@ export function registerFossilScmCommands(
             if (!repoDir) {
                 return;
             }
+            logInfo('Syncing…');
             try {
                 await vscode.window.withProgress(
                     {
@@ -218,15 +269,17 @@ export function registerFossilScmCommands(
                 await refreshFossilStatusNow();
                 const conflicts = getConflictCount();
                 if (conflicts > 0) {
-                    void vscode.window.showWarningMessage(
-                        `Fossil sync finished with ${conflicts} merge conflict(s). Open Merge Conflicts in Source Control to resolve.`
-                    );
+                    const message = `Fossil sync finished with ${conflicts} merge conflict(s). Open Merge Conflicts in Source Control to resolve.`;
+                    logInfo(message);
+                    void vscode.window.showWarningMessage(message);
                 } else {
+                    logInfo('Sync completed.');
                     void vscode.window.showInformationMessage(
                         'Fossil sync completed.'
                     );
                 }
             } catch (err) {
+                logInfo('Sync failed.');
                 showFossilError(err);
             }
         })

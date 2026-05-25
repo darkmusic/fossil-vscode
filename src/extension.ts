@@ -2,7 +2,6 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as fs from 'fs';
 import {
     registerFossilContentProvider,
     notifyFossilContentChanged,
@@ -26,29 +25,32 @@ import { getFossilExePath, runFossil, FossilCommandError } from './fossilCli';
 import { registerFossilScmCommands } from './fossilScmCommands';
 import { registerFossilUi, disposeFossilUi } from './fossilUi';
 import { createStatusRefreshScheduler } from './statusRefresh';
+import { registerFossilLog, logError, logInfo } from './fossilLog';
+import { isUnmanagedStatus } from './statusGroups';
+import { parseStatusOutput } from './statusParse';
+import {
+    clearScmOperationContexts,
+    setFossilContext,
+} from './scmOperationState';
+import { findFossilWorkspaceDir } from './fossilCheckoutDiscovery';
 
 export { getRepoDir } from './repoContext';
 
 let extensionPath = '';
 let fossilSCM: vscode.SourceControl;
-let workingTree: vscode.SourceControlResourceGroup;
+let trackedGroup: vscode.SourceControlResourceGroup;
+let unmanagedGroup: vscode.SourceControlResourceGroup;
+let missingGroup: vscode.SourceControlResourceGroup;
 let mergeConflicts: vscode.SourceControlResourceGroup;
 let quickDiffProvider: FossilQuickDiffProvider;
 const statusByRelativePath = new Map<string, FileStatusEntry>();
 const emptyRenameMap = new Map<string, string>();
 
 function setCheckoutContext(): void {
-    void vscode.commands.executeCommand(
-        'setContext',
-        'fossil.hasCheckout',
-        Boolean(getRepoDir())
-    );
+    setFossilContext('fossil.hasCheckout', Boolean(getRepoDir()));
     if (!getRepoDir()) {
-        void vscode.commands.executeCommand(
-            'setContext',
-            'fossil.uiRunning',
-            false
-        );
+        setFossilContext('fossil.uiRunning', false);
+        clearScmOperationContexts();
     }
 }
 
@@ -73,39 +75,51 @@ function createResourceUri(relativePath: string): vscode.Uri {
     return vscode.Uri.file(absolutePath);
 }
 
-function findFossilWorkspaceDir(): string | undefined {
-    for (const folder of vscode.workspace.workspaceFolders ?? []) {
-        const root = folder.uri.fsPath;
-        if (
-            fs.existsSync(path.join(root, '.fslckout')) ||
-            fs.existsSync(path.join(root, '_FOSSIL_'))
-        ) {
-            return root;
-        }
-    }
-    return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+function activeEditorFilePath(): string | undefined {
+    const uri = vscode.window.activeTextEditor?.document.uri;
+    return uri?.scheme === 'file' ? uri.fsPath : undefined;
 }
 
 export function init(workspaceDir?: string) {
-    const dir = workspaceDir ?? findFossilWorkspaceDir();
+    const dir =
+        workspaceDir ??
+        findFossilWorkspaceDir(
+            vscode.workspace.workspaceFolders,
+            activeEditorFilePath()
+        );
     if (!dir) {
         setRepoDir('');
         setCheckoutContext();
+        logInfo('No Fossil checkout found in workspace.');
         return;
     }
     if (getRepoDir() === dir && fossilSCM) {
         setCheckoutContext();
         return;
     }
+    const repoChanged = Boolean(fossilSCM) && getRepoDir() !== dir;
     setRepoDir(dir);
+    if (repoChanged && fossilSCM) {
+        logInfo(`Fossil checkout changed to ${dir}`);
+    }
     if (!fossilSCM) {
         fossilSCM = vscode.scm.createSourceControl(
             'fossil',
             'Fossil',
             vscode.Uri.file(getRepoDir())
         );
-        workingTree = fossilSCM.createResourceGroup('workingTree', 'Changes');
-        workingTree.hideWhenEmpty = true;
+        trackedGroup = fossilSCM.createResourceGroup(
+            'tracked',
+            'In Checkout'
+        );
+        trackedGroup.hideWhenEmpty = true;
+        unmanagedGroup = fossilSCM.createResourceGroup(
+            'unmanaged',
+            'Not in Checkout'
+        );
+        unmanagedGroup.hideWhenEmpty = true;
+        missingGroup = fossilSCM.createResourceGroup('missing', 'Missing');
+        missingGroup.hideWhenEmpty = true;
         mergeConflicts = fossilSCM.createResourceGroup(
             'merge',
             'Merge Conflicts'
@@ -125,6 +139,21 @@ export function init(workspaceDir?: string) {
         fossilSCM.quickDiffProvider = quickDiffProvider;
     }
     setCheckoutContext();
+    logInfo(`Fossil checkout: ${dir}`);
+}
+
+export function getStatusGroupCounts(): {
+    tracked: number;
+    unmanaged: number;
+    missing: number;
+    merge: number;
+} {
+    return {
+        tracked: trackedGroup?.resourceStates.length ?? 0,
+        unmanaged: unmanagedGroup?.resourceStates.length ?? 0,
+        missing: missingGroup?.resourceStates.length ?? 0,
+        merge: mergeConflicts?.resourceStates.length ?? 0,
+    };
 }
 
 enum Operation {
@@ -147,18 +176,6 @@ function getIconPath(operation: Operation, themeType: ThemeType): string {
     );
 }
 
-/** Fossil status lines: "<TYPE>  <path>" (padding varies by type). */
-const STATUS_LINE =
-    /^(DELETED|EDITED|ADDED|UNMANAGE|EXTRA|RENAMED|CONFLICT)\s+(.+)$/;
-
-function parseStatusLine(line: string): { type: string; relativePath: string } | null {
-    const match = STATUS_LINE.exec(line);
-    if (!match) {
-        return null;
-    }
-    return { type: match[1], relativePath: match[2].trim() };
-}
-
 function contextValueForType(type: string): string {
     return type.toLowerCase();
 }
@@ -175,6 +192,10 @@ export function getConflictCount(): number {
         }
     }
     return count;
+}
+
+export function getMissingCount(): number {
+    return missingGroup?.resourceStates.length ?? 0;
 }
 
 function buildResourceState(
@@ -207,6 +228,21 @@ function getDecorations(
     type: string
 ): vscode.SourceControlResourceState['decorations'] {
     switch (type) {
+        case 'MISSING':
+            return {
+                strikeThrough: true,
+                tooltip: 'Missing (deleted locally)',
+                faded: true,
+                dark: {
+                    iconPath: getIconPath(Operation.Delete, ThemeType.Dark),
+                },
+                light: {
+                    iconPath: getIconPath(
+                        Operation.Delete,
+                        ThemeType.Light
+                    ),
+                },
+            };
         case 'DELETED':
             return {
                 strikeThrough: true,
@@ -290,15 +326,45 @@ function getDecorations(
     }
 }
 
+function pushResourceState(
+    state: vscode.SourceControlResourceState,
+    type: string,
+    trackedStates: vscode.SourceControlResourceState[],
+    unmanagedStates: vscode.SourceControlResourceState[],
+    missingStates: vscode.SourceControlResourceState[],
+    conflictStates: vscode.SourceControlResourceState[]
+): void {
+    if (type === 'CONFLICT') {
+        conflictStates.push(state);
+    } else if (type === 'MISSING') {
+        missingStates.push(state);
+    } else if (isUnmanagedStatus(type)) {
+        unmanagedStates.push(state);
+    } else {
+        trackedStates.push(state);
+    }
+}
+
 export async function getFossilStatus(): Promise<void> {
-    if (!getRepoDir() || !workingTree || !mergeConflicts) {
+    if (
+        !getRepoDir() ||
+        !trackedGroup ||
+        !unmanagedGroup ||
+        !missingGroup ||
+        !mergeConflicts
+    ) {
         return;
     }
 
-    let stdout: string;
+    let differStdout: string;
+    let missingStdout: string;
     try {
-        const result = await runFossil(['status', '--differ'], getRepoDir());
-        stdout = result.stdout;
+        const [differResult, missingResult] = await Promise.all([
+            runFossil(['status', '--differ'], getRepoDir()),
+            runFossil(['status', '--missing'], getRepoDir()),
+        ]);
+        differStdout = differResult.stdout;
+        missingStdout = missingResult.stdout;
     } catch (err: unknown) {
         const message =
             err instanceof FossilCommandError
@@ -306,52 +372,72 @@ export async function getFossilStatus(): Promise<void> {
                 : err instanceof Error
                   ? err.message
                   : String(err);
-        console.log('Could not execute fossil status.');
-        console.log(`stderr: ${message}`);
-        console.log(`Repository directory: ${getRepoDir()}`);
+        logError(`Could not execute fossil status: ${message}`);
         return;
     }
 
     statusByRelativePath.clear();
 
-    const workingStates: vscode.SourceControlResourceState[] = [];
+    const trackedStates: vscode.SourceControlResourceState[] = [];
+    const unmanagedStates: vscode.SourceControlResourceState[] = [];
+    const missingStates: vscode.SourceControlResourceState[] = [];
     const conflictStates: vscode.SourceControlResourceState[] = [];
+    const seenPaths = new Set<string>();
     let renameMap: Map<string, string> | undefined;
     const fossilExePath = getFossilExePath();
 
-    for (const line of stdout.split('\n')) {
-        const parsed = parseStatusLine(line);
-        if (!parsed) {
-            continue;
+    const processEntries = async (
+        entries: ReturnType<typeof parseStatusOutput>
+    ): Promise<void> => {
+        for (const { type, relativePath: rawPath } of entries) {
+            const normalizedPath = normalizeRelativePath(rawPath);
+            if (seenPaths.has(normalizedPath)) {
+                continue;
+            }
+            seenPaths.add(normalizedPath);
+            if (type === 'RENAMED' && renameMap === undefined) {
+                renameMap = await fetchRenameMap(fossilExePath, getRepoDir());
+            }
+            const resourceUri = createResourceUri(rawPath);
+            const state = buildResourceState(
+                resourceUri,
+                type,
+                normalizedPath,
+                renameMap ?? emptyRenameMap
+            );
+            pushResourceState(
+                state,
+                type,
+                trackedStates,
+                unmanagedStates,
+                missingStates,
+                conflictStates
+            );
         }
-        const { type, relativePath: rawPath } = parsed;
-        if (type === 'RENAMED' && renameMap === undefined) {
-            renameMap = await fetchRenameMap(fossilExePath, getRepoDir());
-        }
-        const normalizedPath = normalizeRelativePath(rawPath);
-        const resourceUri = createResourceUri(rawPath);
-        const state = buildResourceState(
-            resourceUri,
-            type,
-            normalizedPath,
-            renameMap ?? emptyRenameMap
-        );
-        if (type === 'CONFLICT') {
-            conflictStates.push(state);
-        } else {
-            workingStates.push(state);
-        }
-    }
+    };
 
-    workingTree.resourceStates = workingStates;
+    await processEntries(parseStatusOutput(differStdout));
+    await processEntries(parseStatusOutput(missingStdout));
+
+    trackedGroup.resourceStates = trackedStates;
+    unmanagedGroup.resourceStates = unmanagedStates;
+    missingGroup.resourceStates = missingStates;
     mergeConflicts.resourceStates = conflictStates;
-    fossilSCM.count = workingStates.length + conflictStates.length;
+    fossilSCM.count =
+        trackedStates.length +
+        unmanagedStates.length +
+        missingStates.length +
+        conflictStates.length;
+    logInfo(
+        `Status: ${trackedStates.length} in checkout, ${unmanagedStates.length} not in checkout, ${missingStates.length} missing, ${conflictStates.length} merge conflict(s).`
+    );
     notifyFossilContentChanged();
     notifyFossilTimelineChanged();
 }
 
 export function activate(context: vscode.ExtensionContext) {
     extensionPath = context.extensionPath;
+    registerFossilLog(context);
     registerFossilContentProvider(context);
     registerOpenChangeCommand(context);
     context.subscriptions.push(
@@ -382,33 +468,39 @@ export function activate(context: vscode.ExtensionContext) {
                 }
 
                 if (!uri || uri.scheme !== 'file') {
+                    logInfo('Open merge editor: no file selected.');
                     void vscode.window.showWarningMessage(
                         'Select a conflicted file to open in the merge editor.'
                     );
                     return;
                 }
 
+                logInfo(`Open merge editor: ${uri.fsPath}`);
                 const opened = await openInMergeEditor(uri);
                 if (!opened) {
                     await vscode.commands.executeCommand(
                         'vscode.open',
                         uri
                     );
+                    logInfo(
+                        'Merge sidecar files not found; opened working file for inline conflict resolution.'
+                    );
                     void vscode.window.showInformationMessage(
                         'Merge sidecar files not found; opened working file for inline conflict resolution.'
                     );
+                } else {
+                    logInfo('Opened file in merge editor.');
                 }
             }
         )
     );
     registerViewTimelineCommand(context);
     try {
-        console.log('registering timeline commands');
         registerFossilTimelineProvider(context);
         registerTimelineCommands(context);
-        console.log('timeline commands registered');
     } catch (err) {
-        console.error('Fossil timeline provider unavailable:', err);
+        const message = err instanceof Error ? err.message : String(err);
+        logError(`Fossil timeline provider unavailable: ${message}`);
     }
     init();
 
@@ -421,17 +513,25 @@ export function activate(context: vscode.ExtensionContext) {
         getRepoDir,
         getFossilSCM,
         getConflictCount,
+        getMissingCount,
         refreshFossilStatusNow: () => statusScheduler.refreshNow(),
     });
     registerFossilUi(context, getRepoDir);
 
     void statusScheduler.refreshNow();
-    console.log('fossil-scm extension activated.');
+    logInfo('fossil-scm extension activated.');
 
     context.subscriptions.push(
         vscode.workspace.onDidChangeWorkspaceFolders(() => {
             init();
             void statusScheduler.refreshNow();
+        }),
+        vscode.window.onDidChangeActiveTextEditor(() => {
+            const previous = getRepoDir();
+            init();
+            if (getRepoDir() && getRepoDir() !== previous) {
+                void statusScheduler.refreshNow();
+            }
         })
     );
 

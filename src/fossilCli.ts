@@ -5,6 +5,7 @@ import * as path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { normalizeRelativePath } from './paths';
+import { logCommand, logError, logInfo } from './fossilLog';
 
 const execFileAsync = promisify(execFile);
 
@@ -30,14 +31,22 @@ export async function runFossil(
     fossilExePath?: string
 ): Promise<{ stdout: string; stderr: string }> {
     const exe = fossilExePath ?? getFossilExePath();
+    logCommand(exe, args, cwd);
+    const started = Date.now();
     try {
         const result = await execFileAsync(exe, args, {
             cwd,
             maxBuffer: 10 * 1024 * 1024,
         });
+        const stderr = result.stderr ?? '';
+        const elapsed = Date.now() - started;
+        logInfo(`Completed in ${elapsed}ms`);
+        if (stderr.trim()) {
+            logInfo(stderr.trim());
+        }
         return {
             stdout: result.stdout,
-            stderr: result.stderr ?? '',
+            stderr,
         };
     } catch (err: unknown) {
         const execErr = err as { stderr?: string; message?: string };
@@ -47,6 +56,7 @@ export async function runFossil(
                 : '') ||
             execErr.message ||
             'fossil command failed';
+        logError(stderr);
         throw new FossilCommandError(stderr, stderr);
     }
 }

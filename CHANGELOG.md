@@ -2,12 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
+The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)  
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [1.0.0] - 2026-05-25
 
-## 0.0.1 - 2026-05-22
+First release published to the [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/). Usable in VS Code, [Cursor](https://cursor.com/), and other VS Code–compatible editors.
+
+### Added
+
+- **Source Control groups:** **In Checkout** (tracked changes) and **Not in Checkout** (unmanaged `EXTRA` / `UNMANAGE`) instead of a single **Changes** list.
+- **Missing** Source Control group for locally deleted tracked files (`fossil status --missing`), with **MISSING** status mapping, **Mark as Deleted** (`fossil rm`), and **Revert** to restore from the repository.
+- **Commit guard** when missing files are present, with an explanation before `fossil commit` runs.
+- **Commit in progress:** SCM progress indicator, disabled commit message input, and spinning commit toolbar icon while `fossil commit` runs.
+- **Fossil UI starting:** Spinner on the Start button while `fossil ui` boots; Stop appears when the server is ready.
+- **Fossil Log** output channel (`View → Output → Fossil Log`) with timestamped operational logging for Fossil CLI commands, SCM actions, timeline operations, Fossil UI, and errors.
+- **Nested Fossil checkout discovery** under a Git (or other) workspace root, with **active editor–aware binding** when multiple checkouts exist (the checkout that contains the open file is preferred).
+- **Extension icon** for the Marketplace listing (`resources/icons/icon.png`).
+- **Create Release** workflow step to publish the tagged VSIX to the Visual Studio Marketplace (`npm run publish:marketplace` with `VSCE_PAT`).
+
+### Changed
+
+- Status refresh runs `fossil status --differ` and `fossil status --missing` in parallel.
+- Click-to-open diff (`fossilScm.openDiffOnClick`) and the **View Timeline (output)** context menu apply to both **In Checkout** and **Not in Checkout** (formerly only the single **Changes** group).
+- Fossil SCM re-initializes and refreshes when the active editor moves between files in different nested checkouts.
+- README updated for the new SCM groups, **Fossil Log**, missing-file workflow, Cursor compatibility, and consolidated screenshots (`doc/main.png`, `doc/timeline.png`).
+- Integration tests reset the bundled test checkout after the suite so local `git` working trees are not left dirty.
+
+### Fixed
+
+- Timeline provider registration failures no longer prevent extension activation; timeline features are skipped with a **Fossil Log** message when the API is unavailable (for example in some Cursor builds).
+
+## [0.0.1] - 2026-05-22
 
 First pre–Marketplace release. Summarizes development from the initial Fossil status integration through the current feature set.
 
@@ -51,3 +77,6 @@ First pre–Marketplace release. Summarizes development from the initial Fossil 
 - URI handling compatibility with newer VS Code extension API changes.
 - Transitive npm dependency security advisories (Dependabot updates through 2024).
 - Test harness and CI setup restored after dependency and tooling upgrades.
+
+[1.0.0]: https://github.com/darkmusic/fossil-vscode/compare/v0.0.1...v1.0.0
+[0.0.1]: https://github.com/darkmusic/fossil-vscode/releases/tag/v0.0.1

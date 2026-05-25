@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { normalizeRelativePath } from './paths';
+import { logCommand, logError } from './fossilLog';
 
 const execFileAsync = promisify(execFile);
 
@@ -106,6 +107,7 @@ export async function runFossilCat(
     const args = rev
         ? ['cat', '-r', rev, relativePath]
         : ['cat', relativePath];
+    logCommand(exe, args, repoDir);
     const result = await execFileAsync(exe, args, {
         cwd: repoDir,
     });
@@ -128,6 +130,7 @@ class FossilBaselineProvider implements vscode.TextDocumentContentProvider {
                 execErr.stderr?.trim() ||
                 execErr.message ||
                 `fossil cat failed for ${relativePath}`;
+            logError(message);
             void vscode.window.showErrorMessage(message);
             return '';
         }

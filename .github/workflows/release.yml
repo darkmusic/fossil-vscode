@@ -41,3 +41,8 @@ jobs:
           name: ${{ github.ref_name }}
           files: "*.vsix"
           generate_release_notes: true
+
+      - name: Publish to Visual Studio Marketplace
+        run: npm run publish:marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}

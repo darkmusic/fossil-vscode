@@ -47,6 +47,7 @@ export class FossilQuickDiffProvider implements vscode.QuickDiffProvider {
             case 'UNMANAGE':
             case 'EXTRA':
             case 'DELETED':
+            case 'MISSING':
                 return undefined;
             case 'ADDED':
                 return toFossilEmptyUri(relativePath, this.repoDir, 'quickdiff');

@@ -10,6 +10,7 @@ import { execFileSync, execSync } from 'child_process';
 import * as fossilSCM from '../extension';
 import { runFossilCat } from '../fossilContentProvider';
 import { runFossil } from '../fossilCli';
+import { FILE1_BASELINE, resetTestRepo } from './testRepoReset';
 
 const testRepoPath = path.join(__dirname, '..', '..', 'src', 'test', 'test_repo');
 const file1Path = path.join(testRepoPath, 'File1.txt');
@@ -43,19 +44,21 @@ suite('Extension Tests', function () {
             );
             this.skip();
         }
+        resetTestRepo(testRepoPath);
     });
 
     setup(function () {
+        resetTestRepo(testRepoPath);
         fossilSCM.init(testRepoPath);
-        try {
-            execSync('fossil revert --all', { cwd: testRepoPath, stdio: 'pipe' });
-        } catch {
-            // nothing to revert
-        }
-        try {
-            execSync('fossil clean -f --force', { cwd: testRepoPath, stdio: 'pipe' });
-        } catch {
-            // ignore
+    });
+
+    teardown(function () {
+        resetTestRepo(testRepoPath);
+    });
+
+    suiteTeardown(function () {
+        if (canRun) {
+            resetTestRepo(testRepoPath);
         }
     });
 
@@ -118,7 +121,6 @@ suite('Extension Tests', function () {
             'State count should be 1 for deleted file, but was: ' +
                 fossilSCM.getStateCount()
         );
-        execSync('fossil undo', { cwd: testRepoPath });
     });
 
     test('fossil add via CLI shows ADDED in status', async function () {
@@ -145,42 +147,41 @@ suite('Extension Tests', function () {
             if (fs.existsSync(untrackedPath)) {
                 fs.unlinkSync(untrackedPath);
             }
-            try {
-                execSync(`fossil revert "${untrackedPath}"`, {
-                    cwd: testRepoPath,
-                    stdio: 'pipe',
-                });
-            } catch {
-                // file may not be tracked
-            }
         }
+    });
+
+    test('locally deleted file appears as MISSING', async function () {
+        fs.unlinkSync(file1Path);
+        await fossilSCM.getFossilStatus();
+        const counts = fossilSCM.getStatusGroupCounts();
+        assert.equal(
+            counts.missing,
+            1,
+            'locally deleted tracked file should appear under Missing'
+        );
+        assert.equal(counts.tracked, 0);
+        await runFossil(['rm', file1Path], testRepoPath);
+        await fossilSCM.getFossilStatus();
+        const afterRm = fossilSCM.getStatusGroupCounts();
+        assert.equal(afterRm.missing, 0);
+        assert.equal(afterRm.tracked, 1);
     });
 
     test('fossil revert restores edited file', async function () {
         const original = fs.readFileSync(file1Path, 'utf8');
+        assert.equal(original, FILE1_BASELINE);
         fs.writeFileSync(file1Path, original + '\nedited\n');
-        try {
-            await fossilSCM.getFossilStatus();
-            assert.ok(
-                fossilSCM.getStateCount() >= 1,
-                'edited file should appear in status'
-            );
-            await runFossil(['revert', file1Path], testRepoPath);
-            await fossilSCM.getFossilStatus();
-            assert.equal(
-                fs.readFileSync(file1Path, 'utf8'),
-                original,
-                'revert should restore file content'
-            );
-        } finally {
-            try {
-                execSync(`fossil revert "${file1Path}"`, {
-                    cwd: testRepoPath,
-                    stdio: 'pipe',
-                });
-            } catch {
-                // ignore
-            }
-        }
+        await fossilSCM.getFossilStatus();
+        assert.ok(
+            fossilSCM.getStateCount() >= 1,
+            'edited file should appear in status'
+        );
+        await runFossil(['revert', file1Path], testRepoPath);
+        await fossilSCM.getFossilStatus();
+        assert.equal(
+            fs.readFileSync(file1Path, 'utf8'),
+            original,
+            'revert should restore file content'
+        );
     });
 });

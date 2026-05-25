@@ -5,7 +5,7 @@
     "repository": {
         "url": "https://github.com/darkmusic/fossil-vscode"
     },
-    "version": "0.0.1",
+    "version": "1.0.0",
     "publisher": "darkmusic",
     "license": "MIT",
     "engines": {
@@ -22,6 +22,7 @@
         "workspaceContains:**/_FOSSIL_"
     ],
     "main": "./dist/extension",
+    "icon": "resources/icons/icon.png",
     "contributes": {
         "commands": [
             {
@@ -52,6 +53,12 @@
                 "title": "Revert",
                 "category": "Fossil",
                 "icon": "$(discard)"
+            },
+            {
+                "command": "fossil.rm",
+                "title": "Mark as Deleted",
+                "category": "Fossil",
+                "icon": "$(trash)"
             },
             {
                 "command": "fossil.commit",
@@ -124,17 +131,29 @@
                 },
                 {
                     "command": "fossil.commit",
-                    "when": "scmProvider == fossil",
+                    "when": "scmProvider == fossil && !fossil.commitInProgress",
                     "group": "navigation@3"
                 },
                 {
+                    "command": "fossil.commit",
+                    "when": "scmProvider == fossil && fossil.commitInProgress",
+                    "group": "navigation@3",
+                    "icon": "$(loading~spin)"
+                },
+                {
                     "command": "fossil.startUi",
-                    "when": "scmProvider == fossil && !fossil.uiRunning",
+                    "when": "scmProvider == fossil && !fossil.uiRunning && !fossil.uiStarting",
                     "group": "navigation@4"
                 },
                 {
+                    "command": "fossil.startUi",
+                    "when": "scmProvider == fossil && fossil.uiStarting",
+                    "group": "navigation@4",
+                    "icon": "$(loading~spin)"
+                },
+                {
                     "command": "fossil.stopUi",
-                    "when": "scmProvider == fossil && fossil.uiRunning",
+                    "when": "scmProvider == fossil && fossil.uiRunning && !fossil.uiStarting",
                     "group": "navigation@4"
                 }
             ],
@@ -150,8 +169,13 @@
                     "group": "1_sync@2"
                 },
                 {
+                    "command": "fossil.rm",
+                    "when": "scmProvider == fossil && scmResourceState == missing",
+                    "group": "1_sync@2"
+                },
+                {
                     "command": "fossil.revert",
-                    "when": "scmProvider == fossil && (scmResourceState == edited || scmResourceState == deleted || scmResourceState == added || scmResourceState == renamed || scmResourceState == conflict)",
+                    "when": "scmProvider == fossil && (scmResourceState == edited || scmResourceState == deleted || scmResourceState == added || scmResourceState == renamed || scmResourceState == conflict || scmResourceState == missing)",
                     "group": "1_sync@3"
                 },
                 {
@@ -161,7 +185,7 @@
                 },
                 {
                     "command": "fossil.viewTimeline",
-                    "when": "scmProvider == fossil && scmResourceGroup == workingTree",
+                    "when": "scmProvider == fossil && (scmResourceGroup == tracked || scmResourceGroup == unmanaged)",
                     "group": "navigation"
                 }
             ],
@@ -199,11 +223,11 @@
                 },
                 {
                     "command": "fossil.startUi",
-                    "when": "fossil.hasCheckout && !fossil.uiRunning"
+                    "when": "fossil.hasCheckout && !fossil.uiRunning && !fossil.uiStarting"
                 },
                 {
                     "command": "fossil.stopUi",
-                    "when": "fossil.hasCheckout && fossil.uiRunning"
+                    "when": "fossil.hasCheckout && fossil.uiRunning && !fossil.uiStarting"
                 },
                 {
                     "command": "fossil.add",
@@ -215,6 +239,10 @@
                 },
                 {
                     "command": "fossil.revert",
+                    "when": "false"
+                },
+                {
+                    "command": "fossil.rm",
                     "when": "false"
                 },
                 {

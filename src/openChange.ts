@@ -8,9 +8,11 @@ import {
     toFossilEmptyUri,
 } from './fossilContentProvider';
 import { normalizeRelativePath } from './paths';
+import { logInfo } from './fossilLog';
 
 export type FossilChangeType =
     | 'DELETED'
+    | 'MISSING'
     | 'EDITED'
     | 'ADDED'
     | 'UNMANAGE'
@@ -70,7 +72,7 @@ export function resolveChangeCommand(
 
     if (!openDiffOnClick) {
         if (
-            changeType === 'DELETED' &&
+            (changeType === 'DELETED' || changeType === 'MISSING') &&
             !fs.existsSync(resourceUri.fsPath)
         ) {
             return {
@@ -103,7 +105,8 @@ export function resolveChangeCommand(
                 arguments: [left, resourceUri, title],
             };
         }
-        case 'DELETED': {
+        case 'DELETED':
+        case 'MISSING': {
             const left = toFossilUri(relativePath, repoDir);
             return {
                 command: 'vscode.open',
@@ -158,6 +161,9 @@ export function registerOpenChangeCommand(
                 repoDir: string,
                 priorPath?: string
             ) => {
+                logInfo(
+                    `Open change: ${changeType} ${normalizeRelativePath(path.relative(repoDir, resourceUri.fsPath))}`
+                );
                 const cmd = resolveChangeCommand(
                     resourceUri,
                     changeType,
