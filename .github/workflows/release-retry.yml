@@ -4,16 +4,16 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Tag to build/publish (example: v1.0.3)
+        description: "Tag to build/publish (example: v1.0.3)"
         required: true
         type: string
       publish_github_release_asset:
-        description: Upload VSIX to the GitHub Release if missing
+        description: "Upload VSIX to the GitHub Release if missing"
         required: true
         type: boolean
         default: true
       publish_marketplace:
-        description: Publish to VS Marketplace (retries; skip-duplicate)
+        description: "Publish to VS Marketplace (retries; skip-duplicate)"
         required: true
         type: boolean
         default: true
