@@ -171,7 +171,7 @@ To publish a new version:
 
 1. Bump `version` in `package.json` and update `CHANGELOG.md`.
 2. Commit on `main`, then tag and push: `git tag v1.0.1 && git push origin v1.0.1` (tag must be `v<package.json version>`, e.g. `v1.0.1`).
-3. The **Create Release** workflow uploads the VSIX to GitHub Releases and publishes to the Visual Studio Marketplace (requires `VSCE_PAT` in repository secrets).
+3. The **Create Release** workflow uploads the VSIX to GitHub Releases and publishes to the Visual Studio Marketplace (requires `VSCE_PAT` in repository secrets). The workflow runs **build**, **github-release**, and **marketplace** as separate jobs. If Marketplace publish times out, use **Re-run failed jobs** on the workflow run: the GitHub release step skips when the VSIX is already attached, and Marketplace publish is retried (up to four attempts, 45-minute job timeout). `vsce publish` uses `--skip-duplicate`, so a version already on the Marketplace is treated as success.
 
 ## License
 

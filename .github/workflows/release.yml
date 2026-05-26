@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -35,14 +35,83 @@ jobs:
 
       - run: npm run vsix
 
-      - uses: softprops/action-gh-release@v2
+      - uses: actions/upload-artifact@v4
         with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
-          files: "*.vsix"
-          generate_release_notes: true
+          name: vsix
+          path: "*.vsix"
+          if-no-files-found: error
 
-      - name: Publish to Visual Studio Marketplace
-        run: npm run publish:marketplace
+  github-release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: vsix
+
+      - name: Create GitHub Release and attach VSIX
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "$TAG" --generate-notes
+          else
+            echo "Release $TAG already exists"
+          fi
+
+          shopt -s nullglob
+          vsix=( *.vsix )
+          if [ ${#vsix[@]} -eq 0 ]; then
+            echo "No VSIX found in artifact"
+            exit 1
+          fi
+
+          asset_name="$(basename "${vsix[0]}")"
+          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fxq "$asset_name"; then
+            echo "Asset $asset_name already on $TAG; skipping upload"
+          else
+            gh release upload "$TAG" "${vsix[@]}"
+          fi
+
+  marketplace:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: vsix
+
+      - run: npm ci
+
+      - name: Publish to Visual Studio Marketplace (retry)
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          set -euo pipefail
+          max_attempts=4
+          retry_wait_seconds=90
+          for attempt in $(seq 1 "$max_attempts"); do
+            echo "Marketplace publish attempt ${attempt}/${max_attempts}"
+            if npm run publish:marketplace; then
+              exit 0
+            fi
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              echo "Publish failed; waiting ${retry_wait_seconds}s before retry..."
+              sleep "$retry_wait_seconds"
+            fi
+          done
+          echo "Marketplace publish failed after ${max_attempts} attempts"
+          exit 1
