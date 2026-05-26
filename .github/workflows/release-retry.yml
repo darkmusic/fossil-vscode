@@ -1,0 +1,102 @@
+name: Release Recovery (retry publish)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to build/publish (example: v1.0.3)
+        required: true
+        type: string
+      publish_github_release_asset:
+        description: Upload VSIX to the GitHub Release if missing
+        required: true
+        type: boolean
+        default: true
+      publish_marketplace:
+        description: Publish to VS Marketplace (retries; skip-duplicate)
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.tag }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Verify tag matches package.json version
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${{ inputs.tag }}"
+          TAG_VERSION="${TAG_VERSION#v}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "Input tag ${{ inputs.tag }} (version $TAG_VERSION) does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
+
+      - run: npm ci
+
+      - run: npm run vsix
+
+      - name: Upload VSIX to GitHub Release (skip if already present)
+        if: ${{ inputs.publish_github_release_asset }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${{ inputs.tag }}"
+
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "$TAG" --generate-notes
+          else
+            echo "Release $TAG already exists"
+          fi
+
+          shopt -s nullglob
+          vsix=( *.vsix )
+          if [ ${#vsix[@]} -eq 0 ]; then
+            echo "No VSIX produced"
+            exit 1
+          fi
+
+          asset_name="$(basename "${vsix[0]}")"
+          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fxq "$asset_name"; then
+            echo "Asset $asset_name already on $TAG; skipping upload"
+          else
+            gh release upload "$TAG" "${vsix[@]}"
+          fi
+
+      - name: Publish to Visual Studio Marketplace (retry)
+        if: ${{ inputs.publish_marketplace }}
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          set -euo pipefail
+          max_attempts=4
+          retry_wait_seconds=90
+          for attempt in $(seq 1 "$max_attempts"); do
+            echo "Marketplace publish attempt ${attempt}/${max_attempts}"
+            if npm run publish:marketplace; then
+              exit 0
+            fi
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              echo "Publish failed; waiting ${retry_wait_seconds}s before retry..."
+              sleep "$retry_wait_seconds"
+            fi
+          done
+          echo "Marketplace publish failed after ${max_attempts} attempts"
+          exit 1
+
