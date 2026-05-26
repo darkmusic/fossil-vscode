@@ -360,7 +360,7 @@ export async function getFossilStatus(): Promise<void> {
     let missingStdout: string;
     try {
         const [differResult, missingResult] = await Promise.all([
-            runFossil(['status', '--differ'], getRepoDir()),
+            runFossil(['status', '--differ', '--dotfiles'], getRepoDir()),
             runFossil(['status', '--missing'], getRepoDir()),
         ]);
         differStdout = differResult.stdout;

@@ -92,6 +92,23 @@ suite('Extension Tests', function () {
         }
     });
 
+    test('Unmanaged dotfile appears in not-in-checkout group', async function () {
+        const dotfilePath = path.join(testRepoPath, '.untracked-dotfile-test');
+        fs.writeFileSync(dotfilePath, 'dotfile\n');
+        try {
+            await fossilSCM.getFossilStatus();
+            const counts = fossilSCM.getStatusGroupCounts();
+            assert.equal(
+                counts.unmanaged,
+                1,
+                'dotfile should appear under Not in Checkout, unmanaged count was: ' +
+                    counts.unmanaged
+            );
+        } finally {
+            fs.unlinkSync(dotfilePath);
+        }
+    });
+
     test('Add file and retrieve status', async function () {
         const newPath = path.join(testRepoPath, 'add-status-test.txt');
         fs.writeFileSync(newPath, 'new\n');

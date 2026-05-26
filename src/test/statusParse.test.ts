@@ -9,6 +9,13 @@ suite('statusParse', () => {
         assert.equal(parsed.relativePath, 'src/foo.txt');
     });
 
+    test('parseStatusLine parses EXTRA dotfile path', () => {
+        const parsed = parseStatusLine('EXTRA      .gitignore');
+        assert.ok(parsed);
+        assert.equal(parsed.type, 'EXTRA');
+        assert.equal(parsed.relativePath, '.gitignore');
+    });
+
     test('parseStatusOutput ignores header lines', () => {
         const stdout = [
             'repository: /tmp/repo.fossil',
