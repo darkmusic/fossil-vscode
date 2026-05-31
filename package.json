@@ -5,7 +5,7 @@
     "repository": {
         "url": "https://github.com/darkmusic/fossil-vscode"
     },
-    "version": "1.0.3",
+    "version": "1.0.4",
     "publisher": "darkmusic",
     "license": "MIT",
     "engines": {
@@ -275,6 +275,21 @@
                     "type": "string",
                     "default": "fossil",
                     "description": "Path to fossil executable"
+                },
+                "fossilScm.crlfHandling": {
+                    "type": "string",
+                    "default": "accept",
+                    "enum": [
+                        "accept",
+                        "convert",
+                        "abort"
+                    ],
+                    "description": "How to handle files with CR/LF line endings when adding or committing.",
+                    "markdownEnumDescriptions": [
+                        "Accept CR/LF line endings as-is.",
+                        "Convert CR/LF line endings to LF.",
+                        "Abort the operation (fossil will exit with an error)."
+                    ]
                 },
                 "fossilScm.openDiffOnClick": {
                     "type": "boolean",
