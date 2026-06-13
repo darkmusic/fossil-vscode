@@ -3,6 +3,7 @@
 [![CI](https://github.com/darkmusic/fossil-vscode/actions/workflows/ci.yml/badge.svg)](https://github.com/darkmusic/fossil-vscode/actions/workflows/ci.yml)
 [![Visual Studio Marketplace](https://shields.io/badge/Visual%20Studio%20Marketplace-darkmusic.fossil--scm-blue?style=flat-square&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=darkmusic.fossil-scm)
 [![Visual Studio Marketplace Installs](https://shields.io/badge/installs-marketplace-blue?style=flat-square)](https://marketplace.visualstudio.com/items?itemName=darkmusic.fossil-scm)
+[![Open VSX](https://shields.io/badge/Open%20VSX-darkmusic.fossil--scm-blue?style=flat-square)](https://open-vsx.org/extension/darkmusic/fossil-scm)
 
 A [Visual Studio Code](https://code.visualstudio.com/) extension for [Fossil SCM](https://www.fossil-scm.org) checkouts. Install from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=darkmusic.fossil-scm) (also works in [Cursor](https://cursor.com/) and other VS Code–compatible editors).
 
@@ -93,6 +94,14 @@ In Cursor, use **Extensions** the same way, or:
 cursor --install-extension darkmusic.fossil-scm
 ```
 
+### Open VSX / VSCodium
+
+VSCodium uses [Open VSX](https://open-vsx.org/) by default. Once the extension is published there, install it from the Extensions view or:
+
+```bash
+codium --install-extension darkmusic.fossil-scm
+```
+
 After installing or updating, reload the window so activation and settings apply.
 
 ### From source (development)
@@ -171,7 +180,7 @@ To publish a new version:
 
 1. Bump `version` in `package.json` and update `CHANGELOG.md`.
 2. Commit on `main`, then tag and push: `git tag v1.0.1 && git push origin v1.0.1` (tag must be `v<package.json version>`, e.g. `v1.0.1`).
-3. The **Create Release** workflow builds the VSIX, creates a draft GitHub Release with the VSIX attached, publishes to the Visual Studio Marketplace (requires `VSCE_PAT` in repository secrets), then publishes the GitHub Release. If Marketplace publish times out, use **Re-run failed jobs** on the workflow run: Marketplace publish is retried (up to four attempts, 45-minute job timeout). `vsce publish` uses `--skip-duplicate`, so a version already on the Marketplace is treated as success.
+3. The **Create Release** workflow builds the VSIX, creates a draft GitHub Release with the VSIX attached, publishes to the Visual Studio Marketplace (requires `VSCE_PAT` in repository secrets), publishes to Open VSX (requires `OPEN_VSX_PAT` in repository secrets), then publishes the GitHub Release. If either registry publish times out, use **Re-run failed jobs** on the workflow run: registry publishing is retried (up to four attempts, 45-minute job timeout). Both publish commands use `--skip-duplicate`, so a version already on the target registry is treated as success.
 
 ## License
 

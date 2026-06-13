@@ -5,7 +5,7 @@
   "repository": {
     "url": "https://github.com/darkmusic/fossil-vscode"
   },
-  "version": "1.0.7",
+  "version": "1.0.8",
   "publisher": "darkmusic",
   "license": "MIT",
   "engines": {
@@ -310,7 +310,8 @@
     "vsix": "vsce package --no-dependencies",
     "pretest": "npm run compile",
     "test": "vscode-test",
-    "publish:marketplace": "vsce publish --packagePath ./*.vsix --skip-duplicate --allow-proposed-apis timeline"
+    "publish:marketplace": "vsce publish --packagePath ./*.vsix --skip-duplicate --allow-proposed-apis timeline",
+    "publish:open-vsx": "ovsx publish --packagePath ./*.vsix --skip-duplicate -p \"$OPEN_VSX_PAT\""
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
@@ -321,6 +322,7 @@
     "@vscode/vsce": "^3.7.0",
     "esbuild": "^0.28.1",
     "npm-run-all": "^4.1.5",
+    "ovsx": "^1.0.1",
     "typescript": "^5.8.3"
   },
   "overrides": {

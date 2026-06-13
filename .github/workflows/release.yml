@@ -135,6 +135,26 @@ jobs:
           echo "Marketplace publish failed after ${max_attempts} attempts"
           exit 1
 
+      - name: Publish to Open VSX (retry)
+        env:
+          OPEN_VSX_PAT: ${{ secrets.OPEN_VSX_PAT }}
+        run: |
+          set -euo pipefail
+          max_attempts=4
+          retry_wait_seconds=90
+          for attempt in $(seq 1 "$max_attempts"); do
+            echo "Open VSX publish attempt ${attempt}/${max_attempts}"
+            if npx ovsx publish --packagePath "${{ steps.vsix.outputs.path }}" --skip-duplicate -p "$OPEN_VSX_PAT"; then
+              exit 0
+            fi
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              echo "Open VSX publish failed; waiting ${retry_wait_seconds}s before retry..."
+              sleep "$retry_wait_seconds"
+            fi
+          done
+          echo "Open VSX publish failed after ${max_attempts} attempts"
+          exit 1
+
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
