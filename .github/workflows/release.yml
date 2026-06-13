@@ -53,56 +53,7 @@ jobs:
           path: "*.vsix"
           if-no-files-found: error
 
-  github-release:
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: vsix
-
-      - name: Resolve VSIX package
-        id: vsix
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          vsix=( *.vsix )
-          if [ ${#vsix[@]} -ne 1 ]; then
-            echo "Expected exactly one VSIX package, found ${#vsix[@]}"
-            printf '%s\n' "${vsix[@]}"
-            exit 1
-          fi
-          echo "path=${vsix[0]}" >> "$GITHUB_OUTPUT"
-
-      - name: Create GitHub Release and attach VSIX
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          TAG="${GITHUB_REF_NAME}"
-          VSIX="${{ steps.vsix.outputs.path }}"
-          ASSET_NAME="$(basename "$VSIX")"
-
-          if ! gh release view "$TAG" >/dev/null 2>&1; then
-            gh release create "$TAG" --title "$TAG" --generate-notes
-          else
-            echo "Release $TAG already exists"
-          fi
-
-          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fxq "$ASSET_NAME"; then
-            echo "Asset $ASSET_NAME already on $TAG; skipping upload"
-          else
-            gh release upload "$TAG" "$VSIX"
-          fi
-
-          if ! gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fxq "$ASSET_NAME"; then
-            echo "Asset $ASSET_NAME is missing from $TAG after upload"
-            exit 1
-          fi
-
-  marketplace:
+  publish:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -134,6 +85,36 @@ jobs:
           fi
           echo "path=${vsix[0]}" >> "$GITHUB_OUTPUT"
 
+      - name: Create draft GitHub Release and attach VSIX
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          VSIX="${{ steps.vsix.outputs.path }}"
+          ASSET_NAME="$(basename "$VSIX")"
+
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" "$VSIX" --title "$TAG" --generate-notes --verify-tag --draft
+          else
+            echo "Release $TAG already exists"
+
+            if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fxq "$ASSET_NAME"; then
+              echo "Asset $ASSET_NAME already on $TAG; skipping upload"
+            elif [ "$(gh release view "$TAG" --json isImmutable --jq '.isImmutable')" = "true" ]; then
+              echo "Release $TAG is immutable and missing $ASSET_NAME; create a new tag or recreate the release."
+              exit 1
+            else
+              gh release upload "$TAG" "$VSIX"
+            fi
+          fi
+
+          if ! gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fxq "$ASSET_NAME"; then
+            echo "Asset $ASSET_NAME is missing from $TAG after upload"
+            exit 1
+          fi
+
       - name: Publish to Visual Studio Marketplace (retry)
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
@@ -153,3 +134,17 @@ jobs:
           done
           echo "Marketplace publish failed after ${max_attempts} attempts"
           exit 1
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+
+          if [ "$(gh release view "$TAG" --json isDraft --jq '.isDraft')" = "true" ]; then
+            gh release edit "$TAG" --draft=false
+          else
+            echo "Release $TAG is already published"
+          fi

@@ -64,7 +64,7 @@ jobs:
           fi
           echo "path=${vsix[0]}" >> "$GITHUB_OUTPUT"
 
-      - name: Upload VSIX to GitHub Release (skip if already present)
+      - name: Prepare GitHub Release asset
         if: ${{ inputs.publish_github_release_asset }}
         env:
           GH_TOKEN: ${{ github.token }}
@@ -75,15 +75,18 @@ jobs:
           ASSET_NAME="$(basename "$VSIX")"
 
           if ! gh release view "$TAG" >/dev/null 2>&1; then
-            gh release create "$TAG" --title "$TAG" --generate-notes
+            gh release create "$TAG" "$VSIX" --title "$TAG" --generate-notes --verify-tag --draft
           else
             echo "Release $TAG already exists"
-          fi
 
-          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fxq "$ASSET_NAME"; then
-            echo "Asset $ASSET_NAME already on $TAG; skipping upload"
-          else
-            gh release upload "$TAG" "$VSIX"
+            if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fxq "$ASSET_NAME"; then
+              echo "Asset $ASSET_NAME already on $TAG; skipping upload"
+            elif [ "$(gh release view "$TAG" --json isImmutable --jq '.isImmutable')" = "true" ]; then
+              echo "Release $TAG is immutable and missing $ASSET_NAME; create a new tag or recreate the release."
+              exit 1
+            else
+              gh release upload "$TAG" "$VSIX"
+            fi
           fi
 
           if ! gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fxq "$ASSET_NAME"; then
@@ -111,3 +114,17 @@ jobs:
           done
           echo "Marketplace publish failed after ${max_attempts} attempts"
           exit 1
+
+      - name: Publish GitHub Release
+        if: ${{ inputs.publish_github_release_asset }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${{ inputs.tag }}"
+
+          if [ "$(gh release view "$TAG" --json isDraft --jq '.isDraft')" = "true" ]; then
+            gh release edit "$TAG" --draft=false
+          else
+            echo "Release $TAG is already published"
+          fi
