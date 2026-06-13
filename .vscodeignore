@@ -1,7 +1,14 @@
 .vscode/**
 .vscode-test/**
+.vscode-test.mjs
+.github/**
+.cursor/**
+.pr/**
 out/**
 src/**
 .gitignore
 tsconfig.json
 esbuild.js
+*.vsix
+!dist
+!dist/**

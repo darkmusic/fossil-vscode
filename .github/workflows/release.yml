@@ -35,6 +35,18 @@ jobs:
 
       - run: npm run vsix
 
+      - name: Verify VSIX package
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          vsix=( *.vsix )
+          if [ ${#vsix[@]} -ne 1 ]; then
+            echo "Expected exactly one VSIX package, found ${#vsix[@]}"
+            printf '%s\n' "${vsix[@]}"
+            exit 1
+          fi
+          echo "Built ${vsix[0]}"
+
       - uses: actions/upload-artifact@v4
         with:
           name: vsix
@@ -50,6 +62,19 @@ jobs:
         with:
           name: vsix
 
+      - name: Resolve VSIX package
+        id: vsix
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          vsix=( *.vsix )
+          if [ ${#vsix[@]} -ne 1 ]; then
+            echo "Expected exactly one VSIX package, found ${#vsix[@]}"
+            printf '%s\n' "${vsix[@]}"
+            exit 1
+          fi
+          echo "path=${vsix[0]}" >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release and attach VSIX
         env:
           GH_TOKEN: ${{ github.token }}
@@ -57,6 +82,8 @@ jobs:
         run: |
           set -euo pipefail
           TAG="${GITHUB_REF_NAME}"
+          VSIX="${{ steps.vsix.outputs.path }}"
+          ASSET_NAME="$(basename "$VSIX")"
 
           if ! gh release view "$TAG" >/dev/null 2>&1; then
             gh release create "$TAG" --title "$TAG" --generate-notes
@@ -64,18 +91,15 @@ jobs:
             echo "Release $TAG already exists"
           fi
 
-          shopt -s nullglob
-          vsix=( *.vsix )
-          if [ ${#vsix[@]} -eq 0 ]; then
-            echo "No VSIX found in artifact"
-            exit 1
+          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fxq "$ASSET_NAME"; then
+            echo "Asset $ASSET_NAME already on $TAG; skipping upload"
+          else
+            gh release upload "$TAG" "$VSIX"
           fi
 
-          asset_name="$(basename "${vsix[0]}")"
-          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fxq "$asset_name"; then
-            echo "Asset $asset_name already on $TAG; skipping upload"
-          else
-            gh release upload "$TAG" "${vsix[@]}"
+          if ! gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fxq "$ASSET_NAME"; then
+            echo "Asset $ASSET_NAME is missing from $TAG after upload"
+            exit 1
           fi
 
   marketplace:
@@ -91,11 +115,24 @@ jobs:
           node-version: 20
           cache: npm
 
+      - run: npm ci
+
       - uses: actions/download-artifact@v4
         with:
           name: vsix
 
-      - run: npm ci
+      - name: Resolve VSIX package
+        id: vsix
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          vsix=( *.vsix )
+          if [ ${#vsix[@]} -ne 1 ]; then
+            echo "Expected exactly one VSIX package, found ${#vsix[@]}"
+            printf '%s\n' "${vsix[@]}"
+            exit 1
+          fi
+          echo "path=${vsix[0]}" >> "$GITHUB_OUTPUT"
 
       - name: Publish to Visual Studio Marketplace (retry)
         env:
@@ -106,7 +143,7 @@ jobs:
           retry_wait_seconds=90
           for attempt in $(seq 1 "$max_attempts"); do
             echo "Marketplace publish attempt ${attempt}/${max_attempts}"
-            if npm run publish:marketplace; then
+            if npx vsce publish --packagePath "${{ steps.vsix.outputs.path }}" --skip-duplicate --allow-proposed-apis timeline; then
               exit 0
             fi
             if [ "$attempt" -lt "$max_attempts" ]; then

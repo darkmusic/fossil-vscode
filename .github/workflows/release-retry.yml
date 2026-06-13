@@ -51,6 +51,19 @@ jobs:
 
       - run: npm run vsix
 
+      - name: Resolve VSIX package
+        id: vsix
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          vsix=( *.vsix )
+          if [ ${#vsix[@]} -ne 1 ]; then
+            echo "Expected exactly one VSIX package, found ${#vsix[@]}"
+            printf '%s\n' "${vsix[@]}"
+            exit 1
+          fi
+          echo "path=${vsix[0]}" >> "$GITHUB_OUTPUT"
+
       - name: Upload VSIX to GitHub Release (skip if already present)
         if: ${{ inputs.publish_github_release_asset }}
         env:
@@ -58,6 +71,8 @@ jobs:
         run: |
           set -euo pipefail
           TAG="${{ inputs.tag }}"
+          VSIX="${{ steps.vsix.outputs.path }}"
+          ASSET_NAME="$(basename "$VSIX")"
 
           if ! gh release view "$TAG" >/dev/null 2>&1; then
             gh release create "$TAG" --title "$TAG" --generate-notes
@@ -65,18 +80,15 @@ jobs:
             echo "Release $TAG already exists"
           fi
 
-          shopt -s nullglob
-          vsix=( *.vsix )
-          if [ ${#vsix[@]} -eq 0 ]; then
-            echo "No VSIX produced"
-            exit 1
+          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fxq "$ASSET_NAME"; then
+            echo "Asset $ASSET_NAME already on $TAG; skipping upload"
+          else
+            gh release upload "$TAG" "$VSIX"
           fi
 
-          asset_name="$(basename "${vsix[0]}")"
-          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fxq "$asset_name"; then
-            echo "Asset $asset_name already on $TAG; skipping upload"
-          else
-            gh release upload "$TAG" "${vsix[@]}"
+          if ! gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fxq "$ASSET_NAME"; then
+            echo "Asset $ASSET_NAME is missing from $TAG after upload"
+            exit 1
           fi
 
       - name: Publish to Visual Studio Marketplace (retry)
@@ -89,7 +101,7 @@ jobs:
           retry_wait_seconds=90
           for attempt in $(seq 1 "$max_attempts"); do
             echo "Marketplace publish attempt ${attempt}/${max_attempts}"
-            if npm run publish:marketplace; then
+            if npx vsce publish --packagePath "${{ steps.vsix.outputs.path }}" --skip-duplicate --allow-proposed-apis timeline; then
               exit 0
             fi
             if [ "$attempt" -lt "$max_attempts" ]; then
@@ -99,4 +111,3 @@ jobs:
           done
           echo "Marketplace publish failed after ${max_attempts} attempts"
           exit 1
-
