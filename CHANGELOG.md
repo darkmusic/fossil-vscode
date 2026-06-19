@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)  
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [1.0.9](https://github.com/darkmusic/fossil-vscode/compare/v1.0.8...v1.0.9) - 2026-06-18
+
+### Fixed
+
+- Transitive npm dependency security advisories (Dependabot updates for `form-data`, `js-yaml`, and `markdown-it`).
+- **`undici`** updated from 7.25.0 to 7.28.0 (transitive dev dependency) to address high-severity advisories [GHSA-vmh5-mc38-953g](https://github.com/advisories/GHSA-vmh5-mc38-953g) (TLS certificate validation bypass via dropped `requestTls` in SOCKS5 `ProxyAgent`) and [GHSA-pr7r-676h-xcf6](https://github.com/advisories/GHSA-pr7r-676h-xcf6) (cross-user information disclosure via shared cache whitespace bypass). Affected range: 7.0.0–7.27.2.
+
+## [1.0.8](https://github.com/darkmusic/fossil-vscode/compare/v1.0.7...v1.0.8) - 2026-06-13
+
+### Added
+
+- **Open VSX publishing:** Create Release and **Release Retry** workflows publish the tagged VSIX to [Open VSX](https://open-vsx.org/) (requires `OPEN_VSX_PAT` in repository secrets). Added `publish:open-vsx` npm script and README instructions for VSCodium / Open VSX installs.
+
+## [1.0.7](https://github.com/darkmusic/fossil-vscode/compare/v1.0.6...v1.0.7) - 2026-06-13
+
+### Changed
+
+- **Create Release workflow:** GitHub Release is created as a draft with the VSIX attached atomically (`gh release create … --draft`), registry publish runs in a single job, and immutable releases missing the VSIX asset fail with a clear error instead of attempting a broken upload.
+
+## [1.0.6](https://github.com/darkmusic/fossil-vscode/compare/v1.0.5...v1.0.6) - 2026-06-13
+
+### Fixed
+
+- **Create Release workflow:** Verify exactly one VSIX after build, resolve the VSIX path explicitly before GitHub upload, confirm the asset exists after upload, and set `GH_REPO` so `gh release upload` targets the correct repository.
+
+## [1.0.5](https://github.com/darkmusic/fossil-vscode/compare/v1.0.4...v1.0.5) - 2026-06-12
+
+### Changed
+
+- Updated dev dependencies (`esbuild`, `shell-quote`, `tmp`).
+
+## [1.0.4](https://github.com/darkmusic/fossil-vscode/compare/v1.0.3...v1.0.4) - 2026-05-31
+
+### Added
+
+- **`fossilScm.crlfHandling` setting** (`accept`, `convert`, or `abort`) for Fossil’s CR/LF line-ending prompts when adding or committing files.
+- **Release Retry** workflow (`release-retry.yml`) to retry Marketplace publish and GitHub Release steps after timeouts or transient failures.
+
+### Changed
+
+- Fossil CLI invocations use `spawn` with stdin piping so CR/LF prompts are answered automatically instead of blocking the extension.
+- **Create Release workflow** split into separate build, GitHub Release, and Marketplace jobs for clearer error handling and retries.
+
+### Fixed
+
+- Extension no longer freezes when Fossil prompts about CR/LF line endings during add or commit operations.
+- Integration test runner falls back to `codium` when the `code` CLI is unavailable.
+
 ## [1.0.3](https://github.com/darkmusic/fossil-vscode/compare/v1.0.2...v1.0.3) - 2026-05-25
 
 ### Fixed
