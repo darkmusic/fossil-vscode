@@ -33,6 +33,11 @@ import {
     setFossilContext,
 } from './scmOperationState';
 import { findFossilWorkspaceDir } from './fossilCheckoutDiscovery';
+import {
+    appendIgnoreGlobOverride,
+    isVersionedIgnoreGlob,
+    readVersionedIgnoreGlob,
+} from './ignoreGlob';
 
 export { getRepoDir } from './repoContext';
 
@@ -359,8 +364,15 @@ export async function getFossilStatus(): Promise<void> {
     let differStdout: string;
     let missingStdout: string;
     try {
+        const ignoreGlob = await readVersionedIgnoreGlob(getRepoDir());
         const [differResult, missingResult] = await Promise.all([
-            runFossil(['status', '--differ', '--dotfiles'], getRepoDir()),
+            runFossil(
+                appendIgnoreGlobOverride(
+                    ['status', '--differ', '--dotfiles', '--hash'],
+                    ignoreGlob
+                ),
+                getRepoDir()
+            ),
             runFossil(['status', '--missing'], getRepoDir()),
         ]);
         differStdout = differResult.stdout;
@@ -530,6 +542,14 @@ export function activate(context: vscode.ExtensionContext) {
             const previous = getRepoDir();
             init();
             if (getRepoDir() && getRepoDir() !== previous) {
+                void statusScheduler.refreshNow();
+            }
+        }),
+        vscode.workspace.onDidSaveTextDocument((document) => {
+            if (
+                document.uri.scheme === 'file' &&
+                isVersionedIgnoreGlob(document.uri.fsPath, getRepoDir())
+            ) {
                 void statusScheduler.refreshNow();
             }
         })

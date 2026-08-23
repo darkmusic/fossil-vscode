@@ -109,6 +109,49 @@ suite('Extension Tests', function () {
         }
     });
 
+    test('Versioned ignore-glob changes are reflected by refresh', async function () {
+        const settingsDir = path.join(testRepoPath, '.fossil-settings');
+        const ignoreGlobPath = path.join(settingsDir, 'ignore-glob');
+        const ignoredPath = path.join(
+            testRepoPath,
+            'ignore-glob-refresh-test.txt'
+        );
+        const settingsDirExisted = fs.existsSync(settingsDir);
+        fs.mkdirSync(settingsDir, { recursive: true });
+        fs.writeFileSync(ignoreGlobPath, 'ignore-glob-refresh-test.txt\n');
+        fs.writeFileSync(ignoredPath, 'ignored\n');
+
+        try {
+            await fossilSCM.getFossilStatus();
+            const before = fossilSCM.getStatusGroupCounts();
+            assert.equal(
+                before.unmanaged,
+                1,
+                'only the untracked ignore-glob setting should be listed'
+            );
+
+            // Keep the file size unchanged to cover Fossil's mtime/size cache.
+            fs.writeFileSync(ignoreGlobPath, 'ignore-glob-refresh-next.txt\n');
+            await fossilSCM.getFossilStatus();
+            const after = fossilSCM.getStatusGroupCounts();
+            assert.equal(
+                after.unmanaged,
+                2,
+                'the file removed from ignore-glob should appear after refresh'
+            );
+        } finally {
+            if (fs.existsSync(ignoredPath)) {
+                fs.unlinkSync(ignoredPath);
+            }
+            if (fs.existsSync(ignoreGlobPath)) {
+                fs.unlinkSync(ignoreGlobPath);
+            }
+            if (!settingsDirExisted && fs.existsSync(settingsDir)) {
+                fs.rmdirSync(settingsDir);
+            }
+        }
+    });
+
     test('Add file and retrieve status', async function () {
         const newPath = path.join(testRepoPath, 'add-status-test.txt');
         fs.writeFileSync(newPath, 'new\n');

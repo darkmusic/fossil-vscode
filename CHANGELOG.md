@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)  
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [1.0.10](https://github.com/darkmusic/fossil-vscode/compare/v1.0.9...v1.0.10) - 2026-08-23
+
+### Fixed
+
+- **Source Control refresh:** Saving `.fossil-settings/ignore-glob` now triggers an immediate refresh, and manual refresh reads the current versioned ignore patterns explicitly. Status checks also use content hashing so same-size edits are reflected instead of being missed by Fossil's mtime/size cache.
+
 ## [1.0.9](https://github.com/darkmusic/fossil-vscode/compare/v1.0.8...v1.0.9) - 2026-06-18
 
 ### Fixed
@@ -147,4 +153,3 @@ First pre–Marketplace release. Summarizes development from the initial Fossil 
 - URI handling compatibility with newer VS Code extension API changes.
 - Transitive npm dependency security advisories (Dependabot updates through 2024).
 - Test harness and CI setup restored after dependency and tooling upgrades.
-

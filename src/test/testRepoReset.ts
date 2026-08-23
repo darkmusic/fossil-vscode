@@ -15,6 +15,7 @@ export const TEST_ARTIFACT_NAMES = [
     'untracked-test.txt',
     'add-status-test.txt',
     'add-cli-test.txt',
+    'ignore-glob-refresh-test.txt',
 ] as const;
 
 function runFossil(cwd: string, args: string): void {
